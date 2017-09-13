@@ -93,9 +93,10 @@ csMode=3
 binSize=0
 binStep=0
 groupSize=0
-chrWide=true
-debugging=false
-normlast=false
+chrWide=true            # If bins are chromosome wide
+debugging=false         # If intermediate files are kept
+normlast=false          # If normalization is performed
+notOriginalBed=false    # If pointing to temporary bed file in $bedfiles
 
 # Parse options ----------------------------------------------------------------
 while getopts hdnc:l:s:p:g:o:r:u: opt; do

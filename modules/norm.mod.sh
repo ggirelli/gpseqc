@@ -16,30 +16,34 @@
 
 # MOD ==========================================================================
 
-
+# Normalize over last condition ------------------------------------------------
 echo -e " Normalizing over last condition ..."
 
+# Get non-empty locations/groups from last condition
+lastBed=$(cat "${bedfiles[-1]}" | awk '0 != $5')
+
+# Cycle through the other conditions
 for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 2")); do
-    infile=$(echo -e "${bedfiles[$bfi]}" | tr "/" "\t" | \
-        gawk '{ print $NF }')
+    # Set in/output path
+    infile=$(echo -e "${bedfiles[$bfi]}" | tr "/" "\t" | gawk '{ print $NF }')
     if [ 0 -ne $groupSize ]; then
-        outfile=$(echo -e "$infile" | sed "s/grouped/normlast/")
+        outfile="$outdir/"$(echo -e "$infile" | sed "s/grouped/normlast/")
     else
-        outfile=$prefix"normlast.$descr$infile$suffix.tsv"
+        outfile="$outdir/"$prefix"normlast.$descr$infile$suffix.tsv"
     fi
 
     # Intersect and keep only regions present in last condition
     echo -e " > Normalizing $infile ..."
-    bedtools intersect -a <(cat "${bedfiles[-1]}" | awk '0 != $5' ) \
-        -b "${bedfiles[$bfi]}" -wb | \
+    bedtools intersect -a <(echo -e "$lastBed" ) -b "${bedfiles[$bfi]}" -wb | \
         awk 'BEGIN{ OFS = FS = "\t"; } { $10 = $10 / $5; print $0; }' | \
-        cut -f6- > "$outdir/$outfile" & pid=$!
+        cut -f6- > "$outfile" & pid=$!; wait $pid
 
     # Remove grouped bed file
-    wait $pid; if [ false == $debugging ]; then rm "${bedfiles[$bfi]}"; fi
+    if [ $notOriginalBed -a false == $debugging ]; then
+        rm "${bedfiles[$bfi]}"; fi
 
     # Point to non-zero-loci bed file instead of original one
-    bedfiles[$bfi]="$outdir/$outfile"
+    bedfiles[$bfi]="$outfile"
 done
 
 # Remove last condition

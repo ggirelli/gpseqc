@@ -14,18 +14,15 @@
 
 # MOD ==========================================================================
 
+# Generate bins ----------------------------------------------------------------
 echo -e " Generating bins ..."
 
-# Generate bins
-if $chrWide; then
-    cat "$outdir/"$prefix"chr_size$suffix.tsv" | \
-        gawk '{ print $1 "\t" 0 "\t" $2 }' \
-        > "$outdir/"$prefix"$descr$suffix.bed" & pid=$!
-else
-    cat "$outdir/"$prefix"chr_size$suffix.tsv" | \
-        gawk -v size=$binSize -v step=$binStep -f "$awkdir/mk_bins.awk" \
-        > "$outdir/"$prefix"$descr$suffix.bed" & pid=$!
-fi
+generatedBinsPath="$outdir/"$prefix"$descr$suffix.bed"
+if $chrWide; then cat "$chrSizePath" | gawk '{ print $1 "\t" 0 "\t" $2 }' \
+        > "$generatedBinsPath" & pid=$!;
+else cat "$chrSizePath" | gawk -v size=$binSize -v step=$binStep \
+    	-f "$awkdir/mk_bins.awk" > "$generatedBinsPath" & pid=$!; fi
+wait $pid
 
 # END ==========================================================================
 

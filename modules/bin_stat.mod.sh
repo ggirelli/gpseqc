@@ -26,7 +26,7 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
     echo -e " > Calculating for $infile ..."
     cat "${bedfiles[$bfi]}" | datamash -sg1,2,3 sum 5 mean 5 sstdev 5 count 5 \
         | gawk -f "$awkdir/add_chr_id.awk" | sort -k1,1n -k3,3n | cut -f2- \
-        > "$outdir/$outfile" & pid=$!
+        > "$outdir/$outfile" & pid=$!; wait $pid
 
     # Replace (grouped-)cutsite counts
     if [ -n "$csbed" ]; then
@@ -34,7 +34,7 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
     fi
 
     # Remove binned
-    wait $pid; if [ false == $debugging ]; then rm "${bedfiles[$bfi]}"; fi
+    if [ false == $debugging ]; then rm "${bedfiles[$bfi]}"; fi
 
     # Point to stats bed file instead of original one
     bedfiles[$bfi]="$outdir/$outfile"
