@@ -3,7 +3,9 @@ Estimate centrality
 
 The **estimate centrality** tool aims at estimating the 3D spatial nuclear centrality of genomic regions.
 
-### v1.1.0
+### Unreleased
+
+Two main families of metrics are implemented: probability-based and variance-based.
 
 Added empty loci removal and normalization over last condition. Fixed intermediate file naming and output. Counted cutsites are now actually seen custites, disregarding empty cutsites (with no reads).
 
@@ -64,7 +66,3 @@ usage: ./estimate_centrality.sh [-h][-d][-s binSize][-p binStep][-g groupSize]
   -r prefix     Output name prefix.
   -u suffix     Output name suffix.
 ```
-
-### v1.0.0
-
-Two main families of metrics are implemented: probability-based and variance-based.

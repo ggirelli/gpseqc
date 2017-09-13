@@ -4,7 +4,7 @@
 # 
 # Author: Gabriele Girelli
 # Email: gigi.ga90@gmail.com
-# Version: 1.1.0
+# Version: 0.0.1
 # Date: 20170821
 # Project: GPSeq - centrality estimation
 # Description: estimate genomic region nuclear centrality.
