@@ -9,6 +9,9 @@
 # Project: GPSeq - centrality estimation
 # Description: estimate genomic region nuclear centrality.
 # 
+# TODO:
+# 	Do not remove original bedfiles... (-n -c3)
+# 
 # ------------------------------------------------------------------------------
 
 
