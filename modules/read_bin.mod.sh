@@ -30,10 +30,12 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
         > "$outdir/$outfile" & pid=$!; wait $pid
 
     # Remove nzl file
-    if [ false == $debugging ]; then rm ${bedfiles[$bfi]}; fi
+    if [ $notOriginalBed -a false == $debugging ]; then
+        rm "${bedfiles[$bfi]}"; fi
 
     # Point to binned bed file instead of original one
     bedfiles[$bfi]="$outdir/$outfile"
+    notOriginalBed=true
 done
 
 # Remove bin bed

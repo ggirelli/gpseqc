@@ -44,6 +44,7 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 2")); do
 
     # Point to non-zero-loci bed file instead of original one
     bedfiles[$bfi]="$outfile"
+    notOriginalBed=true
 done
 
 # Remove last condition

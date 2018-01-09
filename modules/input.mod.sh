@@ -104,6 +104,7 @@ while getopts hdnc:l:s:p:g:o:r:u: opt; do
         h)
             # Help page
             echo -e "$long_helps" | less
+            echo -e "$long_helps"
             exit 0
         ;;
         d)
@@ -260,8 +261,8 @@ if [ 0 -ne $binStep -a 0 -ne $groupSize ]; then
     fi
 fi
 
-# Print settings ---------------------------------------------------------------
-settings=""
+# Prepare to print settings ----------------------------------------------------
+settings=" # GPSeq-centrality-estimate\n"
 if $chrWide; then settings="$settings\n Using chr-wide bins.";
 else settings="$settings\n   Bin size : $binSize\n   Bin step : $binStep"; fi
 
@@ -282,11 +283,54 @@ if $debugging; then settings="$settings\n\n Debugging mode ON."; fi
 
 settings="$settings\n 
  Output dir : $outdir
-  Bed files :
-   $(echo ${bedfiles[@]} | sed 's/ /\n   /g')"
-echo -e "$settings\n"
+  Bed files :"
+for bfi in $(seq 1 ${#bedfiles[@]}); do
+  if [ -n "${bedfiles[bfi]}" ]; then
+    settings="$settings\n   $bfi : ${bedfiles[bfi]}"
+  fi
+done
 
-# Set description
+# Ask for confirmation ---------------------------------------------------------
+settings_confirm="
+ ##############################################
+ #                                            #
+ #  PLEASE, DOUBLE CHECK THE SETTINGS BELOW   #
+ # (press 'q' to continue when you are ready) #
+ #                                            #
+ ##############################################
+
+$settings\n\n"
+
+echo -e "$settings_confirm" | less
+
+msg="$msg\nRun the analysis?\nYes (y), Abort (a), Show again (s)"
+clear; echo -e $msg; read -e ans
+
+end=0
+while [[ 0 -eq $end ]]; do
+  if [[ -z $ans ]]; then
+    echo -e $msg
+    read -e ans
+  elif [[ 'a' == $ans ]]; then
+    end=1
+    echo "Aborted."
+    exit 1
+  elif [[ 'y' == $ans ]]; then
+    echo -e "\n"
+    end=1
+  elif [[ 's' == $ans ]]; then
+    echo -e "$settings_confirm" | less
+    clear; echo -e $msg; read -e ans
+  else
+    echo -e $msg
+    read -e ans
+  fi
+done
+
+# Re-print to display before proceeding
+clear; echo -e "\n$settings\n"
+
+# Save settings to file --------------------------------------------------------
 if $chrWide; then descr=$descr"bins.chrWide";
 else descr=$descr"bins.size$binSize.step$binStep"; fi
 if [ 0 -ne $groupSize ]; then descr="$descr.group$groupSize"; fi

@@ -26,7 +26,7 @@ case $csMode in
             csbed=$(cat "$csList" | grep -v "track")
         else
             echo -e " > Reading group list ..."
-            csbed=$(cat "generatedGroupsPath" | grep -v "track")
+            csbed=$(cat "$generatedGroupsPath" | grep -v "track")
         fi
     ;;
     2) # Union
@@ -59,7 +59,7 @@ if [ -n "$csbed" ]; then
     # Group cutsites
     if [ 0 -ne $groupSize ]; then
         bedtools intersect \
-            -a "generatedGroupsPath" -b <(echo -e "$csbed") \
+            -a "$generatedGroupsPath" -b <(echo -e "$csbed") \
             -wa -c -loj |  cut -f 1-3 | sed 's/-1$/0/' | \
             gawk -v prefix="row_" -f "$awkdir/add_name.awk" \
             > "$generatedCutsitePath" & pid=$!; wait $pid
@@ -67,7 +67,7 @@ if [ -n "$csbed" ]; then
         echo -e "$csbed" > "$generatedCutsitePath"
     fi
 fi
-
+echo 1
 # Rename or clean bed files ----------------------------------------------------
 for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
     # Set input/output paths (csd : CutSite Domain)

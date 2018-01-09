@@ -34,10 +34,12 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
     fi
 
     # Remove binned
-    if [ false == $debugging ]; then rm "${bedfiles[$bfi]}"; fi
+    if [ $notOriginalBed -a false == $debugging ]; then
+        rm "${bedfiles[$bfi]}"; fi
 
     # Point to stats bed file instead of original one
     bedfiles[$bfi]="$outdir/$outfile"
+    notOriginalBed=true
 done
 
 # END ==========================================================================
