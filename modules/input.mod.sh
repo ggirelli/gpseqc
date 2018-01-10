@@ -76,6 +76,7 @@ long_helps="$helps
 
  Optional arguments:
   -h            Show this help page.
+  -y            Do not ask for settings confirmation and proceed.
   -d            Debugging mode: save intermediate results.
   -n            Use last condition for normalization.
   -c csMode     Custite mode (see Notes).
@@ -93,19 +94,24 @@ csMode=3
 binSize=0
 binStep=0
 groupSize=0
+waitConfirm=true
 chrWide=true            # If bins are chromosome wide
 debugging=false         # If intermediate files are kept
 normlast=false          # If normalization is performed
 notOriginalBed=false    # If pointing to temporary bed file in $bedfiles
 
 # Parse options ----------------------------------------------------------------
-while getopts hdnc:l:s:p:g:o:r:u: opt; do
+while getopts hydnc:l:s:p:g:o:r:u: opt; do
     case $opt in
         h)
             # Help page
             echo -e "$long_helps" | less
             echo -e "$long_helps"
             exit 0
+        ;;
+        y)
+            # Do not ask for confirmation
+            waitConfirm=false
         ;;
         d)
             # Debugging mode
@@ -291,22 +297,23 @@ for bfi in $(seq 1 ${#bedfiles[@]}); do
 done
 
 # Ask for confirmation ---------------------------------------------------------
-settings_confirm="
- ##############################################
- #                                            #
- #  PLEASE, DOUBLE CHECK THE SETTINGS BELOW   #
- # (press 'q' to continue when you are ready) #
- #                                            #
- ##############################################
+end=1
 
-$settings\n\n"
+if $waitConfirm; then
+  settings_confirm="
+   ##############################################
+   #                                            #
+   #  PLEASE, DOUBLE CHECK THE SETTINGS BELOW   #
+   # (press 'q' to continue when you are ready) #
+   #                                            #
+   ##############################################
 
-echo -e "$settings_confirm" | less
-
-msg="$msg\nRun the analysis?\nYes (y), Abort (a), Show again (s)"
-clear; echo -e $msg; read -e ans
-
-end=0
+  $settings\n\n"
+  echo -e "$settings_confirm" | less
+  msg="$msg\nRun the analysis?\nYes (y), Abort (a), Show again (s)"
+  clear; echo -e $msg; read -e ans
+  end=0
+fi
 while [[ 0 -eq $end ]]; do
   if [[ -z $ans ]]; then
     echo -e $msg

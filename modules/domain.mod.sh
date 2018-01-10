@@ -32,7 +32,7 @@ case $csMode in
     2) # Union
         # Identify cutsites from all conditions
         echo -e " > Merging cutsite domains ..."
-        csbed=$(cat ${bedfiles[@]} | grep -v "track" | cut -f 3 | sort | uniq \
+        csbed=$(cat ${bedfiles[@]} | grep -v "track" | cut -f 1-3 | sort | uniq \
             | gawk -f "$awkdir/add_chr_id.awk" | sort -k1,1n | cut -f2-)
     ;;
     3) # Separated
@@ -67,7 +67,7 @@ if [ -n "$csbed" ]; then
         echo -e "$csbed" > "$generatedCutsitePath"
     fi
 fi
-echo 1
+
 # Rename or clean bed files ----------------------------------------------------
 for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
     # Set input/output paths (csd : CutSite Domain)
