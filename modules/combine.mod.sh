@@ -26,7 +26,7 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
     comb="$comb$tmp\n"
 
     # Remove bin_stats
-    if [ $notOriginalBed -a false == $debugging ]; then
+    if [ true == $notOriginalBed -a false == $debugging ]; then
     	rm "${bedfiles[$bfi]}"; fi
 done
 

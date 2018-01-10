@@ -97,7 +97,7 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
     fi
 
     # Remove grouped bed file
-    if [ $notOriginalBed -a false == $debugging ]; then
+    if [ true == $notOriginalBed -a false == $debugging ]; then
         rm "$outdir/$infile"; fi
 
     # Point to non-zero-loci bed file instead of original one

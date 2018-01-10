@@ -39,9 +39,8 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 2")); do
         cut -f6- > "$outfile" & pid=$!; wait $pid
 
     # Remove grouped bed file
-    if [ $notOriginalBed -a false == $debugging ]; then
-        rm "${bedfiles[$bfi]}"
-    fi
+    if [ true == $notOriginalBed -a false == $debugging ]; then
+        rm "${bedfiles[$bfi]}"; fi
 
     # Point to non-zero-loci bed file instead of original one
     bedfiles[$bfi]="$outfile"
