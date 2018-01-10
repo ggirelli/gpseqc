@@ -54,7 +54,7 @@ esac
 
 # Group domain if needed and save counts ---------------------------------------
 echo -e " > Counting cutsites ..."
-generatedCutsitePath="$outdir/$prefix.cutsite.$descr$suffix.bed"
+generatedCutsitePath="$outdir/"$prefix"cutsite.$descr$suffix.bed"
 if [ -n "$csbed" ]; then
     # Group cutsites
     if [ 0 -ne $groupSize ]; then
@@ -71,7 +71,9 @@ fi
 # Rename or clean bed files ----------------------------------------------------
 for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
     # Set input/output paths (csd : CutSite Domain)
-    infile=$(echo -e "${bedfiles[$bfi]}" | tr "/" "\t" | gawk '{ print $NF }')
+    infile=$(basename "${bedfiles[$bfi]}")
+    if [ false == $notOriginalBed ]; then
+        cp "${bedfiles[$bfi]}" "$outdir/$infile"; fi
     if [ false == $normlast ]; then
         if [ 0 -ne $groupSize ]; then
             outfile=$(echo -e "$infile" | sed "s/grouped/csd/")
@@ -91,13 +93,13 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
                 -b <(cat "$outdir/$outfile" | cut -f1-3) \
                 -wa -c -loj | cut -f 1-3 | sed 's/-1$/0/' | \
                 gawk -v prefix="row_" -f "$awkdir/add_name.awk" \
-                > "$outdir/$prefix.cutsite.$descr$suffix.bed" & pid=$!
+                > "$generatedCutsitePath" & pid=$!
             wait $pid
         fi
     fi
 
     # Remove grouped bed file
-    if [ true == $notOriginalBed -a false == $debugging ]; then
+    if [ false == $debugging ]; then
         rm "$outdir/$infile"; fi
 
     # Point to non-zero-loci bed file instead of original one
@@ -106,7 +108,8 @@ done
 notOriginalBed=true
 
 # Clean
-if [ false == $debugging -a 0 -ne $groupSize ];then rm "$generatedGroupsPath";fi
+if [ false == $debugging -a 0 -ne $groupSize ]; then
+    rm "$generatedGroupsPath"; fi
 
 # END ==========================================================================
 

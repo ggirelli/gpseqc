@@ -68,6 +68,7 @@ source $moddir/output.mod.sh
 
 if [ false == $debugging ]; then
     rm "$outdir/"$prefix"chr_size$suffix.tsv"
+    if [ -e "$generatedCutsitePath" ]; then rm "$generatedCutsitePath"; fi
 fi
 
 # END ==========================================================================
