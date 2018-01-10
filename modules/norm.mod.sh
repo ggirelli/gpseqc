@@ -45,12 +45,13 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 2")); do
     # Point to non-zero-loci bed file instead of original one
     bedfiles[$bfi]="$outfile"
 done
-notOriginalBed=true
 
 # Remove last condition
 if [ true == $notOriginalBed -a false == $debugging ]; then
     rm "${bedfiles[-1]}"; fi
 unset 'bedfiles[-1]'
+
+notOriginalBed=true
 
 # END ==========================================================================
 
