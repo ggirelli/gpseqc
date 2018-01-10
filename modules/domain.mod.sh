@@ -102,8 +102,8 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
 
     # Point to non-zero-loci bed file instead of original one
     bedfiles[$bfi]="$outdir/$outfile"
-    notOriginalBed=true
 done
+notOriginalBed=true
 
 # Clean
 if [ false == $debugging -a 0 -ne $groupSize ];then rm "$generatedGroupsPath";fi

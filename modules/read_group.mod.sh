@@ -38,8 +38,8 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
 
     # Point to group bed file instead of original one
     bedfiles[$bfi]="$outfile"
-    notOriginalBed=true
 done
+notOriginalBed=true
 
 # END ==========================================================================
 

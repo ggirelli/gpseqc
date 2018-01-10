@@ -35,8 +35,8 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
 
     # Point to binned bed file instead of original one
     bedfiles[$bfi]="$outdir/$outfile"
-    notOriginalBed=true
 done
+notOriginalBed=true
 
 # Remove bin bed
 if [ false == $debugging ]; then rm "$generatedBinsPath"; fi

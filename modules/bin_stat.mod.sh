@@ -28,10 +28,11 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
         | gawk -f "$awkdir/add_chr_id.awk" | sort -k1,1n -k3,3n | cut -f2- \
         > "$outdir/$outfile" & pid=$!; wait $pid
 
-    # Replace (grouped-)cutsite counts
-    if [ -n "$csbed" ]; then
-        echo 0
-    fi
+    # # Replace (grouped-)cutsite counts
+    # if [ -n "$csbed" ]; then
+    #     echo 0
+    #     exit 1
+    # fi
 
     # Remove binned
     if [ $notOriginalBed -a false == $debugging ]; then
@@ -39,8 +40,8 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
 
     # Point to stats bed file instead of original one
     bedfiles[$bfi]="$outdir/$outfile"
-    notOriginalBed=true
 done
+notOriginalBed=true
 
 # END ==========================================================================
 

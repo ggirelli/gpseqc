@@ -40,12 +40,13 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 2")); do
 
     # Remove grouped bed file
     if [ $notOriginalBed -a false == $debugging ]; then
-        rm "${bedfiles[$bfi]}"; fi
+        rm "${bedfiles[$bfi]}"
+    fi
 
     # Point to non-zero-loci bed file instead of original one
     bedfiles[$bfi]="$outfile"
-    notOriginalBed=true
 done
+notOriginalBed=true
 
 # Remove last condition
 if [ false == $debugging ]; then rm "${bedfiles[-1]}"; fi
