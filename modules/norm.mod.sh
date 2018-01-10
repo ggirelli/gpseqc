@@ -48,7 +48,8 @@ done
 notOriginalBed=true
 
 # Remove last condition
-if [ false == $debugging ]; then rm "${bedfiles[-1]}"; fi
+if [ true == $notOriginalBed -a false == $debugging ]; then
+    rm "${bedfiles[-1]}"; fi
 unset 'bedfiles[-1]'
 
 # END ==========================================================================
