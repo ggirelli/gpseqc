@@ -28,12 +28,6 @@ for bfi in $(seq 0 $(bc <<< "${#bedfiles[@]} - 1")); do
         | gawk -f "$awkdir/add_chr_id.awk" | sort -k1,1n -k3,3n | cut -f2- \
         > "$outdir/$outfile" & pid=$!; wait $pid
 
-    # # Replace (grouped-)cutsite counts
-    # if [ -n "$csbed" ]; then
-    #     echo 0
-    #     exit 1
-    # fi
-
     # Remove binned
     if [ true == $notOriginalBed -a false == $debugging ]; then
         rm "${bedfiles[$bfi]}"; fi

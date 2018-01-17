@@ -17,8 +17,9 @@
 # Help string ------------------------------------------------------------------
 helps="
  Usage: ./estimate_centrality.sh [-h][-d][-n][-c csMode][-l csList]
-                                [-s binSize][-p binStep][-g groupSize]
-                                [-r prefix][-u suffix] -o outdir [BEDFILE]...
+                                 [-b binList][-s binSize][-p binStep]
+                                 [-g groupSize][-r prefix][-u suffix]
+                                 -o outdir [BEDFILE]...
 "
 long_helps="$helps
  Description:
@@ -81,6 +82,7 @@ long_helps="$helps
   -n            Use last condition for normalization.
   -c csMode     Custite mode (see Notes).
   -l csList     Path to cutsite bed file. Required for -c1 when -g is not used.
+  -b binList    path to bed file with bins. If used, -s and -p are ignored.
   -s binSize    Bin size in bp. Default to chromosome-wide bins.
   -p binStep    Bin step in bp. Default to bin sizeinStep.
   -g groupSize  Group size in bp. Used to group bins for statistics calculation.
@@ -101,7 +103,7 @@ normlast=false          # If normalization is performed
 notOriginalBed=false    # If pointing to temporary bed file in $bedfiles
 
 # Parse options ----------------------------------------------------------------
-while getopts hydnc:l:s:p:g:o:r:u: opt; do
+while getopts hydnc:l:b:s:p:g:o:r:u: opt; do
     case $opt in
         h)
             # Help page
@@ -135,6 +137,18 @@ while getopts hydnc:l:s:p:g:o:r:u: opt; do
             # Cutsite bed file
             if [ -e $OPTARG -a -n "$OPTARG" ]; then
                 csList="$OPTARG"
+            else
+                msg="!!!ERROR! Invalid -l option, file not found."
+                msg="$msg\n    File: $bf"
+                echo -e " $helps\n$msg"
+                exit 1
+            fi
+        ;;
+        b)
+            # Bins bed file
+            if [ -e $OPTARG -a -n "$OPTARG" ]; then
+                binBed="$OPTARG"
+                chrWide=false
             else
                 msg="!!!ERROR! Invalid -l option, file not found."
                 msg="$msg\n    File: $bf"
@@ -269,8 +283,12 @@ fi
 
 # Prepare to print settings ----------------------------------------------------
 settings=" # GPSeq-centrality-estimate\n"
-if $chrWide; then settings="$settings\n Using chr-wide bins.";
-else settings="$settings\n   Bin size : $binSize\n   Bin step : $binStep"; fi
+if [ -n "$binBed" ]; then
+  settings="$settings\n Bin bed file: $binBed"
+else
+  if $chrWide; then settings="$settings\n Using chr-wide bins.";
+  else settings="$settings\n   Bin size : $binSize\n   Bin step : $binStep"; fi
+fi
 
 if [ 0 -ne $groupSize ]; then settings="$settings\n Group size : $groupSize"; fi
 
@@ -338,8 +356,12 @@ done
 clear; echo -e "\n$settings\n"
 
 # Save settings to file --------------------------------------------------------
-if $chrWide; then descr=$descr"bins.chrWide";
-else descr=$descr"bins.size$binSize.step$binStep"; fi
+if [ -n "$binBed" ]; then
+  descr=$descr"customBins"
+else
+  if $chrWide; then descr=$descr"bins.chrWide";
+  else descr=$descr"bins.size$binSize.step$binStep"; fi
+fi
 if [ 0 -ne $groupSize ]; then descr="$descr.group$groupSize"; fi
 descr="$descr.csm$csMode"
 if $normlast; then descr="$descr.norm"; fi
