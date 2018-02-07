@@ -308,9 +308,10 @@ if $debugging; then settings="$settings\n\n Debugging mode ON."; fi
 settings="$settings\n 
  Output dir : $outdir
   Bed files :"
-for bfi in $(seq 1 ${#bedfiles[@]}); do
+for bfi in $(seq 0 ${#bedfiles[@]}); do
   if [ -n "${bedfiles[bfi]}" ]; then
-    settings="$settings\n   $bfi : ${bedfiles[bfi]}"
+    bfip=$(bc <<< "$bfi+1")
+    settings="$settings\n   $bfip : ${bedfiles[bfi]}"
   fi
 done
 
