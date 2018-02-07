@@ -365,7 +365,7 @@ fi
 if [ 0 -ne $groupSize ]; then descr="$descr.group$groupSize"; fi
 descr="$descr.csm$csMode"
 if $normlast; then descr="$descr.norm"; fi
-echo -e "$settings\n" > "$outdir/settings.$descr.txt"
+echo -e "$settings\n" > "$outdir/$prefix""settings.$descr.txt"
 
 # END ==========================================================================
 
