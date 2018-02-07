@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## Unreleased
 ### Fixed
 - Not skipping first bed file in settings confirmation page.
+- Added prefix to output settings file.
 
 
 
