@@ -3,7 +3,7 @@ Estimate centrality
 
 The **estimate centrality** tool aims at estimating the 3D spatial nuclear centrality of genomic regions.
 
-### Unreleased
+### estimate_centrality.sh
 
 Two main families of metrics are implemented: probability-based and variance-based.
 
@@ -65,4 +65,34 @@ usage: ./estimate_centrality.sh [-h][-d][-s binSize][-p binStep][-g groupSize]
                 binSize must be divisible by groupSize. Not used by default.
   -r prefix     Output name prefix.
   -u suffix     Output name suffix.
+```
+
+### rankcmp.py
+
+A script to compare rankings of the same type. It is compatible with both FISH and Sequencing based rankings. The rank type can be one of `chr`, `set`, `probe` for compatibility with the FISH-based input. When comparing two seq-based ranks, use `chr` for chrWide binning and either `set` or `probe` for sub-chromosome bins.
+
+The following Python2 packages should be installed beforehand: `argparse`, `joblib`, `math`, `matplotlib`, `matplotlib`, `numpy`, `pandas`, `tqdm`, `random`, `scipy`, `time`, `warnings`.
+
+```
+usage: rankcmp.py [-h] [-t type] [-d distance] [--bed path] [-i niter]
+                  [--threads nthreads] [-s delimiter] [--prefix text]
+                  rank1 rank2
+
+Calculate difference between rankings obtained with GPSeq, either by FISH or
+sequencing.
+
+positional arguments:
+  rank1               Path to first ranking set.
+  rank2               Path to second ranking set.
+
+optional arguments:
+  -h, --help          show this help message and exit
+  -t type             One of the following: chr, set, probe.
+  -d distance         Wither 'kt' (Kendall tau) or 'ktw' (Kendall tau
+                      weighted).
+  --bed path          Path to bed file.
+  -i niter            Number of iterations to build the random distribution.
+  --threads nthreads  Number of threads for parallelization.
+  -s delimiter        Ranking file field delimiter.
+  --prefix text       Text for output file name prefix.
 ```
