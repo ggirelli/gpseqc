@@ -74,25 +74,38 @@ A script to compare rankings of the same type. It is compatible with both FISH a
 The following Python2 packages should be installed beforehand: `argparse`, `joblib`, `math`, `matplotlib`, `matplotlib`, `numpy`, `pandas`, `tqdm`, `random`, `scipy`, `time`, `warnings`.
 
 ```
-usage: rankcmp.py [-h] [-t type] [-d distance] [--bed path] [-i niter]
-                  [--threads nthreads] [-s delimiter] [--prefix text]
+usage: rankcmp.py [-h] [-o outdir] [-t type] [-d distance] [-b path]
+                  [-i niter] [-c nthreads] [-s delimiter] [-p text]
                   rank1 rank2
 
-Calculate difference between rankings obtained with GPSeq, either by FISH or
-sequencing.
+Calculates distance between rankings obtained with GPSeq, either by FISH or
+sequencing. For compatibility with FISH, rank type can be one of: 'chr',
+'set', or 'probe'. When comparing two sequencing-based rankings, use 'chr' for
+chromosome-wide bins, and either set or 'probe' for sub-chromosome bins. When
+working with non- -'chr' ranking types, a bed file is required. Please, note
+that the script can compare only rankings of the same regions, which should
+match those in the provided bed file (if any). If the regions from the two
+ranks do not match, the script will work on their intersection. If the
+intersection is empty, an error message is displayed.
 
 positional arguments:
-  rank1               Path to first ranking set.
-  rank2               Path to second ranking set.
+  rank1                 Path to first ranking set.
+  rank2                 Path to second ranking set.
 
 optional arguments:
-  -h, --help          show this help message and exit
-  -t type             One of the following: chr, set, probe.
-  -d distance         Wither 'kt' (Kendall tau) or 'ktw' (Kendall tau
-                      weighted).
-  --bed path          Path to bed file.
-  -i niter            Number of iterations to build the random distribution.
-  --threads nthreads  Number of threads for parallelization.
-  -s delimiter        Ranking file field delimiter.
-  --prefix text       Text for output file name prefix.
+  -h, --help            show this help message and exit
+  -o outdir             Path to output directory, created if missing. Default:
+                        '.'
+  -t type               One of the following: chr, set, probe. Default: 'chr'
+  -d distance           Wither 'kt' (Kendall tau) or 'ktw' (Kendall tau
+                        weighted). Default: 'ktw'
+  -b path, --bed path   Path to bed file. Needed only for type others than
+                        'chr'.
+  -i niter              Number of iterations to build the random distribution.
+                        Default: 5000
+  -c nthreads, --threads nthreads
+                        Number of threads for parallelization. Default: 1
+  -s delimiter          Ranking file field delimiter. Default: TAB
+  -p text, --prefix text
+                        Text for output file name prefix. Default: ''
 ```

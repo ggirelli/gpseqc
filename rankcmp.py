@@ -36,8 +36,18 @@ import warnings
 
 # Add script description
 parser = argparse.ArgumentParser(description = '''
-Calculate difference between rankings obtained with GPSeq, either by FISH or
-sequencing.
+Calculates distance between rankings obtained with GPSeq, either by FISH or
+sequencing. For compatibility with FISH, rank type can be one of: 'chr', 'set',
+or 'probe'.
+
+When comparing two sequencing-based rankings, use 'chr' for chromosome-wide
+bins, and either set or 'probe' for sub-chromosome bins. When working with non-
+-'chr' ranking types, a bed file is required.
+
+Please, note that the script can compare only rankings of the same regions,
+which should match those in the provided bed file (if any). If the regions from
+the two ranks do not match, the script will work on their intersection. If the
+intersection is empty, an error message is displayed.
 ''')
 
 # Add mandatory arguments
@@ -47,26 +57,32 @@ parser.add_argument('rank2', type = str, nargs = 1,
 	help = 'Path to second ranking set.')
 
 # Add arguments with default value
+parser.add_argument('-o', type = str, nargs = 1,
+	metavar = 'outdir', default = ['.'],
+	help = """Path to output directory, created if missing. Default: '.'""")
 parser.add_argument('-t', type = str, nargs = 1,
-	metavar = 'type', help = """One of the following: chr, set, probe.""",
-	choices = ['chr', 'set', 'probe'], default = ['chr'])
+	metavar = 'type', help = """One of the following: chr, set, probe.
+	Default: 'chr'""", choices = ['chr', 'set', 'probe'], default = ['chr'])
 parser.add_argument('-d', type = str, nargs = 1,
 	metavar = 'distance', choices = ['kt', 'ktw'], default = ['ktw'],
-	help = """Wither 'kt' (Kendall tau) or 'ktw' (Kendall tau weighted).""")
-parser.add_argument('--bed', type = str, nargs = 1,
-	metavar = 'path', help = """Path to bed file.""", default = [None])
+	help = """Wither 'kt' (Kendall tau) or 'ktw' (Kendall tau weighted).
+	Default: 'ktw'""")
+parser.add_argument('-b', '--bed', type = str, nargs = 1,
+	metavar = 'path', default = [None],
+	help = """Path to bed file. Needed only for type others than 'chr'.""")
 parser.add_argument('-i', type = int, nargs = 1,
 	metavar = 'niter', default = [5000],
-	help = """Number of iterations to build the random distribution.""")
-parser.add_argument('--threads', type = int, nargs = 1,
-	metavar = 'nthreads', help = """Number of threads for parallelization.""",
-	default = [1])
+	help = """Number of iterations to build the random distribution.
+	Default: 5000""")
+parser.add_argument('-c', '--threads', type = int, nargs = 1,
+	metavar = 'nthreads', default = [1],
+	help = """Number of threads for parallelization. Default: 1""")
 parser.add_argument('-s', type = str, nargs = 1,
 	metavar = 'delimiter', default = ['\t'],
-	help = """Ranking file field delimiter.""")
-parser.add_argument('--prefix', type = str, nargs = 1,
+	help = """Ranking file field delimiter. Default: TAB""")
+parser.add_argument('-p', '--prefix', type = str, nargs = 1,
 	metavar = 'text', default = [''],
-	help = """Text for output file name prefix.""")
+	help = """Text for output file name prefix. Default: ''""")
 
 # Parse arguments
 args = parser.parse_args()
@@ -74,9 +90,12 @@ args = parser.parse_args()
 # Assign to in-script variables
 rank1_path = args.rank1[0]
 rank2_path = args.rank2[0]
+outdir = args.o[0]
 rtype = args.t[0]
 dtype = args.d[0]
 bed_path = args.bed[0]
+if not 'chr' == rtype and type(None) == type(bed_path):
+	sys.exit("ERROR: bed path required for non-chromosomal rank types.")
 niter = args.i[0]
 nthreads = args.threads[0]
 sep = args.s[0]
@@ -693,11 +712,11 @@ def settings_confirm(s):
 	confirmed = False
 	while not confirmed:
 		# Ask for confirmation and read reply
-		print("\nRun the analysis?\nYes (y), Abort (a), Show again (s)")
+		print("\nRun the analysis?\nYes (y), Abort (a)")
 		ans = raw_input()
 
 		# Check that reply is valid
-		if not ans in ["y", "a", "s"]:
+		if not ans in ["y", "a"]:
 			print("Invalid answer.")
 			pass
 
@@ -720,21 +739,30 @@ sset = """
 
         R1 : %s
         R2 : %s
+    Outdir : %s
+
       Type : %s
       Dist : %s
-""" % (rank1_path, rank2_path, rtype, dlabs[dtype])
+""" % (rank1_path, rank2_path, outdir, rtype, dlabs[dtype])
 if type(None) != type(bed_path):
 	sset += "       Bed : %s" % (bed_path,)
 sset += """
     n.iter : %d
  n.threads : %d
+
        sep : '%s'
     prefix : '%s'
 """ % (niter, nthreads, sep, prefix)
 settings_confirm(sset)
 
+# Output directory
+if not os.path.isdir(outdir):
+	os.mkdir(outdir)
+if not os.path.sep == outdir[-1]:
+	outdir += os.path.sep
+
 # Save settings as txt
-fset = open("%s%s.settings.txt" % (prefix, rtype), 'w+')
+fset = open("%s%s%s.settings.txt" % (outdir, prefix, rtype), 'w+')
 fset.write(sset)
 fset.close()
 
@@ -761,12 +789,12 @@ plot_titles = {
 	'probe' : "Single probe comparison"
 }
 (dmat, pmat, kmat) = pairwise_study(rt1, rt2, niter, nthreads, dtype,
-	'%s%s.%s.norms.pdf' % (prefix, rtype, dtype), plot_titles[rtype],
-	[rt1_type, rt2_type])
+	'%s%s%s.%s.norms.pdf' % (outdir, prefix, rtype, dtype),
+	plot_titles[rtype], [rt1_type, rt2_type])
 
 # Plot -------------------------------------------------------------------------
 
-outpdf = PdfPages('%s%s.%s.heatmaps.pdf' % (prefix, rtype, dtype))
+outpdf = PdfPages('%s%s%s.%s.heatmaps.pdf' % (outdir, prefix, rtype, dtype))
 
 # Plot distance heatmap
 fig = heatmap_plot(dmat, [0, 0.5, 1], dlabs[dtype], lrt2, lrt1)
@@ -788,11 +816,11 @@ outpdf.close()
 # Output -----------------------------------------------------------------------
 
 pd.DataFrame(dmat, columns = lrt2, index = lrt1).to_csv(
-	"%s%s.dist_table.tsv" % (prefix, rtype), "\t")
+	"%s%s%s.dist_table.tsv" % (outdir, prefix, rtype), "\t")
 pd.DataFrame(pmat, columns = lrt2, index = lrt1).to_csv(
-	"%s%s.pval_table.tsv" % (prefix, rtype), "\t")
+	"%s%s%s.pval_table.tsv" % (outdir, prefix, rtype), "\t")
 pd.DataFrame(kmat, columns = lrt2, index = lrt1).to_csv(
-	"%s%s.kspv_table.tsv" % (prefix, rtype), "\t")
+	"%s%s%s.kspv_table.tsv" % (outdir, prefix, rtype), "\t")
 
 # END ==========================================================================
 
