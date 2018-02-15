@@ -20,6 +20,8 @@
 import argparse
 from joblib import Parallel, delayed
 import math
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot as pp
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
@@ -734,25 +736,26 @@ def settings_confirm(s):
 
 # Settings confirmation --------------------------------------------------------
 
+
 sset = """
      # SETTINGS #
 
         R1 : %s
         R2 : %s
-    Outdir : %s
+""" % (rank1_path, rank2_path)
+if type(None) != type(bed_path):
+	sset += "       Bed : %s\n" % (bed_path,)
+sset += """    Outdir : %s
 
       Type : %s
       Dist : %s
-""" % (rank1_path, rank2_path, outdir, rtype, dlabs[dtype])
-if type(None) != type(bed_path):
-	sset += "       Bed : %s" % (bed_path,)
-sset += """
+
     n.iter : %d
  n.threads : %d
 
        sep : '%s'
     prefix : '%s'
-""" % (niter, nthreads, sep, prefix)
+""" % (outdir, rtype, dlabs[dtype], niter, nthreads, sep, prefix)
 settings_confirm(sset)
 
 # Output directory

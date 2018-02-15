@@ -12,7 +12,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 - Comparison script displays error message when bed file is required but not provided.
+- Now allowing to plot when DISPLAY is disconnected.
 
+### Changed
+- Fixed order of settings in confirmation message.
 
 
 ## [1.1.0] - 2018-02-13
