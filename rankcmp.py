@@ -50,7 +50,7 @@ Please, note that the script can compare only rankings of the same regions,
 which should match those in the provided bed file (if any). If the regions from
 the two ranks do not match, the script will work on their intersection. If the
 intersection is empty, an error message is displayed.
-''')
+''', formatter_class = argparse.RawDescriptionHelpFormatter)
 
 # Add mandatory arguments
 parser.add_argument('rank1', type = str, nargs = 1,
