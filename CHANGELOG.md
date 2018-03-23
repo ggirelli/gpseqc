@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
+### ...
+- ...
+
+
+
+## [1.2.0] - 2018-03-23
 ### Added
 - Output directory parameter to comparison script.
+- Option to include/exclude metrics from calculation.
 
 ### Fixed
 - Comparison script displays error message when bed file is required but not provided.
@@ -16,6 +23,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 - Fixed order of settings in confirmation message.
+- Added common functions in separate module.
+
 
 
 ## [1.1.0] - 2018-02-13
@@ -33,5 +42,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 [Unreleased] https://github.com/ggirelli/gpseq-centrality-estimate
+[1.1.0] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v1.2.0
 [1.1.0] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v1.1.0
 [1.0.0] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v1.0.0

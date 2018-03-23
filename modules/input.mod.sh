@@ -14,6 +14,8 @@
 
 # MOD ==========================================================================
 
+source "`dirname ${BASH_SOURCE}`/functions.mod.sh"
+
 # Help string ------------------------------------------------------------------
 helps="
  Usage: ./estimate_centrality.sh [-h][-d][-n][-c csMode][-l csList]
@@ -68,6 +70,19 @@ long_helps="$helps
    In case of sub-chromosome bins, the ranking is done in an ordered
    chromosome-wise manner.
 
+  # Select specific metrics
+   By default, all the available metrics are calculated. Use -i to provide a
+   list of the comma-separated metrics to calculate, while the rest would be
+   excluded. Use the -e option to provide a list of the comma-separated metrics
+   not to be calculated, while the rest would be included. The available metrics
+   are:
+    prob_2p prob_f prob_g
+    cor_2p  cor_f  cor_g
+    roc_2p  roc_f  roc_g
+    var_2p  var_f
+    ff_2p   ff_f
+    cv_2p   cv_f
+
  Mandatory arguments:
   -o outdir     Output folder.
   BEDFILE       At least two (2) GPSeq condition bedfiles, space-separated and
@@ -87,6 +102,10 @@ long_helps="$helps
   -p binStep    Bin step in bp. Default to bin sizeinStep.
   -g groupSize  Group size in bp. Used to group bins for statistics calculation.
                 binSize must be divisible by groupSize. Not used by default.
+  -e metrics    Comma-separated list of metrics to exclude from calculation.
+                All metrics BUT the specified ones are calculated.
+  -i metrics    Comma-separated list of metrics to be calculated.
+                Only the specified metrics are calculated.
   -r prefix     Output name prefix.
   -u suffix     Output name suffix.
 "
@@ -102,8 +121,14 @@ debugging=false         # If intermediate files are kept
 normlast=false          # If normalization is performed
 notOriginalBed=false    # If pointing to temporary bed file in $bedfiles
 
+included_metrics=()
+excluded_metrics=()
+metrics="prob_2p,prob_f,prob_g,cor_2p,cor_f,cor_g,roc_2p,roc_f,roc_g,var_2p"
+metrics="$metrics,var_f,ff_2p,ff_f,cv_2p,cv_f"
+IFS=',' read -r -a metricslist <<< "$metrics"
+
 # Parse options ----------------------------------------------------------------
-while getopts hydnc:l:b:s:p:g:o:r:u: opt; do
+while getopts hydnc:l:b:s:p:g:o:r:u:i:e: opt; do
     case $opt in
         h)
             # Help page
@@ -209,6 +234,14 @@ while getopts hydnc:l:b:s:p:g:o:r:u: opt; do
             # Add leading dot
             suffix=$(echo -e "$suffix" | sed -r 's/^([^\.])/\.\1/' | tr ' ' '_')
         ;;
+        i)
+            # Metrics to include
+            IFS="," read -r -a included_metrics <<< "$OPTARG"
+        ;;
+        e)
+            # Metrics to exclude
+            IFS="," read -r -a excluded_metrics <<< "$OPTARG"
+        ;;
         ?)
             msg="!!! ERROR! Unrecognized option."
             echo -e "$help\n$msg"
@@ -233,6 +266,45 @@ fi
 if [ ! -x "$(command -v gawk)" -o -z "$(command -v gawk)" ]; then
     echo -e "$helps\n!!! ERROR! Missing gawk.\n"
     exit 1
+fi
+
+included=$(( 0 != ${#included_metrics[@]} ))
+excluded=$(( 0 != ${#excluded_metrics[@]} ))
+if (( 2 == $(bc <<< "$excluded + $included") )); then
+  echo -e "$helps\n!!! ERROR! Options -e and -i cannot be used together."
+  exit 1
+fi
+if (( 1 == $included )); then
+  calc_metrics=()
+  for metlab in ${included_metrics[@]}; do
+    containsElement "$metlab" "${metricslist[@]}"
+    if [[ 0 == "$?" ]]; then
+      echo -e "$helps\n!!! ERROR! Metric '$metlab' not recognized (-i)."
+      echo -e "Allowed metrics: ${metricslist[@]}"
+      exit 1
+    fi
+  done
+  for metlab in ${metricslist[@]}; do
+    containsElement "$metlab" "${included_metrics[@]}"
+    if [[ 1 == "$?" ]]; then
+      calc_metrics+=("$metlab")
+    fi
+  done
+fi
+if (( 1 == $excluded )); then
+  calc_metrics=${metricslist[@]}
+  for metlab in ${excluded_metrics[@]}; do
+    containsElement "$metlab" "${metricslist[@]}"
+    if [[ 0 == "$?" ]]; then
+      echo -e "$helps\n!!! ERROR! Metric '$metlab' not recognized (-e)."
+      echo -e "Allowed metrics: ${metricslist[@]}"
+      exit 1
+    else
+      calc_metrics=("${calc_metrics[@]/$metlab}")
+      calc_metrics=$(join_by "," ${calc_metrics[@]})
+      calc_metrics=($(split_by "," "$calc_metrics"))
+    fi
+  done
 fi
 
 # Read bedfile paths -----------------------------------------------------------
@@ -304,6 +376,15 @@ if [ -n "$prefix" ]; then settings="$settings\n     Prefix : '$prefix'"; fi
 if [ -n "$suffix" ]; then settings="$settings\n     Suffix : '$suffix'"; fi
 if $normlast; then settings="$settings\n\n Normalizing over last condition."; fi
 if $debugging; then settings="$settings\n\n Debugging mode ON."; fi
+
+if(( 1 == $included )); then 
+  settings="$settings\n\n Included metrics:\n"
+  settings="$settings   $(join_by ", " ${included_metrics[@]} | sed 's/,/, /g')"
+fi
+if(( 1 == $excluded )); then 
+  settings="$settings\n\n Excluded metrics:\n"
+  settings="$settings   $(join_by ", " ${excluded_metrics[@]} | sed 's/,/, /g')"
+fi
 
 settings="$settings\n 
  Output dir : $outdir

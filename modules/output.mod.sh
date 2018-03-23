@@ -27,12 +27,7 @@ comb=$(echo -e "$comb" | \
 
 # Metrics table
 header="chr\tstart\tend"
-header="$header\tprob_2p\tprob_f\tprob_g"   # Probability
-header="$header\tCoR_2p\tCoR_f\tCoR_g"      # Cumulative of Ratio
-header="$header\tRoC_2p\tRoC_f\tRoC_g"      # Ratio of Cumulative
-header="$header\tvar_2p\tvar_f"             # Variance
-header="$header\tff_2p\tff_f"               # Fano factor
-header="$header\tcv_2p\tcv_f"               # Coefficient of Variation
+header="$header\t$(join_by $'\t' ${calc_metrics[@]})"
 metrics=$(echo -e "$metrics" | \
     gawk -v header="$header" -f "$awkdir/add_header.awk")
 
