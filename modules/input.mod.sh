@@ -307,6 +307,9 @@ if (( 1 == $excluded )); then
     fi
   done
 fi
+if (( 0 == $(bc <<< "$excluded + $included") )); then
+  calc_metrics=${metricslist[@]}
+fi
 
 # Read bedfile paths -----------------------------------------------------------
 shift $(($OPTIND - 1))
