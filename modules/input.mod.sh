@@ -21,6 +21,7 @@ helps="
  Usage: ./estimate_centrality.sh [-h][-d][-n][-c csMode][-l csList]
                                  [-b binList][-s binSize][-p binStep]
                                  [-g groupSize][-r prefix][-u suffix]
+                                 [-e metrics][-i metrics]
                                  -o outdir [BEDFILE]...
 "
 long_helps="$helps
