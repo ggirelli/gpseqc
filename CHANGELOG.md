@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 
-[1.2.1]
+[1.2.1] - 2018-03-27
 ### Fixed
 - Fixed behavior when -i/-e are not used.
 
