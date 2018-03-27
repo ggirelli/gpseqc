@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Fixed behavior when -i/-e are not used.
 
+### Added
+- Version option.
+
 
 
 ## [1.2.0] - 2018-03-23
