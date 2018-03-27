@@ -32,7 +32,7 @@ metrics=$(echo -e "$comb" | cut -f1-3 | uniq)
 echo -e " > Probability ..."
 prob_mat=$(echo -e "$comb" | cut -f4,5,8 | \
     gawk -v type="p" -f "$awkdir/pre_process.awk" | paste $spaste)
-containsElement "prob_2p" "a ${calc_metrics[@]}"; if [[ 1 == "$?" ]]; then
+containsElement "prob_2p" "${calc_metrics[@]}"; if [[ 1 == "$?" ]]; then
     probability_two_points=$(echo -e "$prob_mat" | \
         gawk -v calc="ratio" -v type="2p" -f "$awkdir/estimate_centrality.awk")
     metrics=$(echo -e "$metrics" | paste -d$'\t' - \
