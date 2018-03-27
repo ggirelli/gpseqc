@@ -18,7 +18,7 @@ source "`dirname ${BASH_SOURCE}`/functions.mod.sh"
 
 # Help string ------------------------------------------------------------------
 helps="
- Usage: ./estimate_centrality.sh [-h][-d][-n][-c csMode][-l csList]
+ Usage: $0 [-h][-v][-d][-n][-c csMode][-l csList]
                                  [-b binList][-s binSize][-p binStep]
                                  [-g groupSize][-r prefix][-u suffix]
                                  [-e metrics][-i metrics]
@@ -93,6 +93,7 @@ long_helps="$helps
 
  Optional arguments:
   -h            Show this help page.
+  -v            Show script version and stop.
   -y            Do not ask for settings confirmation and proceed.
   -d            Debugging mode: save intermediate results.
   -n            Use last condition for normalization.
@@ -129,12 +130,17 @@ metrics="$metrics,var_f,ff_2p,ff_f,cv_2p,cv_f"
 IFS=',' read -r -a metricslist <<< "$metrics"
 
 # Parse options ----------------------------------------------------------------
-while getopts hydnc:l:b:s:p:g:o:r:u:i:e: opt; do
+while getopts hvydnc:l:b:s:p:g:o:r:u:i:e: opt; do
     case $opt in
         h)
             # Help page
             echo -e "$long_helps" | less
             echo -e "$long_helps"
+            exit 0
+        ;;
+        v)
+            # Version tag
+            echo -e "$0 v1.2.1"
             exit 0
         ;;
         y)
@@ -293,7 +299,7 @@ if (( 1 == $included )); then
   done
 fi
 if (( 1 == $excluded )); then
-  calc_metrics=${metricslist[@]}
+  calc_metrics=(${metricslist[@]})
   for metlab in ${excluded_metrics[@]}; do
     containsElement "$metlab" "${metricslist[@]}"
     if [[ 0 == "$?" ]]; then
@@ -308,7 +314,7 @@ if (( 1 == $excluded )); then
   done
 fi
 if (( 0 == $(bc <<< "$excluded + $included") )); then
-  calc_metrics=${metricslist[@]}
+  calc_metrics=(${metricslist[@]})
 fi
 
 # Read bedfile paths -----------------------------------------------------------

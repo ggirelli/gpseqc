@@ -4,7 +4,7 @@
 # 
 # Author: Gabriele Girelli
 # Email: gigi.ga90@gmail.com
-# Version: 1.1.0
+# Version: 1.2.1
 # Date: 20170913
 # Project: GPSeq - centrality estimation
 # Description: estimate genomic region nuclear centrality.
@@ -17,15 +17,15 @@
 
 export LC_ALL=C
 
-# FUNCTIONS ====================================================================
-
-source $moddir/functions.mod.sh
-
 # CONSTANTS ====================================================================
 
 # Code folder
 awkdir="`dirname ${BASH_SOURCE}`/awk/"
 moddir="`dirname ${BASH_SOURCE}`/modules/"
+
+# FUNCTIONS ====================================================================
+
+source $moddir/functions.mod.sh
 
 # PARAMS =======================================================================
 source $moddir/input.mod.sh
