@@ -140,7 +140,7 @@ while getopts hvydnc:l:b:s:p:g:o:r:u:i:e: opt; do
         ;;
         v)
             # Version tag
-            echo -e "$0 v1.2.1"
+            echo -e "$0 v1.2.1dev"
             exit 0
         ;;
         y)
@@ -457,7 +457,7 @@ fi
 if [ 0 -ne $groupSize ]; then descr="$descr.group$groupSize"; fi
 descr="$descr.csm$csMode"
 if $normlast; then descr="$descr.norm"; fi
-echo -e "$settings\n" > "$outdir/$prefix""settings.$descr.txt"
+echo -e "$settings\n" > "$outdir/$prefix""settings.$descr$suffix.txt"
 
 # END ==========================================================================
 
