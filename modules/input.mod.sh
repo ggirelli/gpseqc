@@ -140,7 +140,7 @@ while getopts hvydnc:l:b:s:p:g:o:r:u:i:e: opt; do
         ;;
         v)
             # Version tag
-            echo -e "$0 v1.2.1dev"
+            echo -e "$0 v1.2.2"
             exit 0
         ;;
         y)
