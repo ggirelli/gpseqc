@@ -44,6 +44,7 @@
 # DEPENDENCIES =================================================================
 
 import argparse
+import numpy as np
 import os
 import pybedtools as pbt
 import sys
@@ -279,6 +280,28 @@ def ask(q):
 			sys.exit("Aborted.\n")
 		elif not 'y' == answer.lower():
 			print("Please, answer 'y' or 'n'.\n")
+
+def chr2chrid(c):
+	''''''
+
+	c = c[3:]
+	if "X" == c: c = '23'
+	if "Y" == c: c = '24'
+	if c.isalpha(): return(np.nan)
+	else: return(int(c))
+
+
+def sort_by_chr(bed):
+	''''''
+	
+	assert os.path.isfile(bed), "missing file: %s" % bed
+
+	sorted(pbt.BedTool(bed), key = lambda x: chr2chrid(x))
+
+
+def get_chr_size(bed):
+	''''''
+	pass
 
 # RUN ==========================================================================
 
