@@ -48,6 +48,7 @@ import numpy as np
 import os
 import pybedtools as pbt
 import sys
+from tqdm import tqdm
 
 # PARAMETERS ===================================================================
 
@@ -118,14 +119,14 @@ parser.add_argument('-o', '--output', type = str, nargs = 1,
 	help = """Path to output folder.""", metavar = "outDir", required = True)
 parser.add_argument('-c', '--cutsite-mode', type = int, nargs = 1,
 	help = """Custite mode (see Notes).""", choices = range(1, 5),
-	metavar = "csMode", default = 3)
+	metavar = "csMode", default = [3])
 csModeLabel = ["1:Universe", "2:Union", "3:Separate+Empty", "4:Intersection"]
 parser.add_argument('-l', '--cutsite-bed', type = str, nargs = 1,
 	help = """Path to cutsite bedfile. Required for -c1 when -g is not used.""",
-	metavar = "csBed", default = None)
+	metavar = "csBed", default = [None])
 parser.add_argument('-b', '--bin-bed', type = str, nargs = 1,
 	help = """Path to bin bedfile. If used, -s and -p are ignored.""",
-	metavar = "binBed", default = None)
+	metavar = "binBed", default = [None])
 parser.add_argument('-s', '--bin-size', type = int, nargs = 1,
 	help = """Bin size in bp. Default to chromosome-wide bins.""",
 	metavar = "binSize", default = [0])
@@ -141,11 +142,11 @@ metrics = ['prob_2p', 'prob_f', 'prob_g', 'cor_2p', 'cor_f', 'cor_g', 'roc_2p',
 parser.add_argument('-e', '--exclude', type = str, nargs = '*',
 	help = """Space-separated list of metrics to exclude from calculation.
 	All metrics BUT the specified ones are calculated.""",
-	metavar = "metric", default = None, choices = metrics)
+	metavar = "metric", default = [None], choices = metrics)
 parser.add_argument('-i', '--include', type = str, nargs = '*',
 	help = """Space-separated list of metrics to be calculated.
 	Only the specified metrics are calculated.""",
-	metavar = "metric", default = None, choices = metrics)
+	metavar = "metric", default = [None], choices = metrics)
 parser.add_argument('-r', '--prefix', type = str, nargs = 1,
 	help = """Output name prefix.""", metavar = "prefix", default = [""])
 parser.add_argument('-u', '--suffix', type = str, nargs = 1,
@@ -185,16 +186,16 @@ if args.normalize:
 
 assert pbt.check_for_bedtools(), "bedtools required."
 
-doExclude = not type(None)==type(args.exclude)
-doInclude = not type(None)==type(args.include)
+doExclude = not type(None)==type(args.exclude[0])
+doInclude = not type(None)==type(args.include[0])
 assert not(doExclude and doInclude), "options -e/-i cannot be used together."
 
 for bp in args.bedfile:
 	assert os.path.isfile(bp), "file not found: '%s'" % bp
 
-assert_msg = ""
-assertc = 1 == args.cutsite_mode and 0 == args.group_size[0]
-assert not(assertc and type(None) == type(args.cutsite_list)), assert_msg
+assert_msg = "missing -l option with -c1 and -g."
+assertc = 1 == args.cutsite_mode[0] and 0 == args.group_size[0]
+assert not(assertc and type(None) == type(args.cutsite_bed[0])), assert_msg
 
 assert 0 <= args.bin_size[0], "bin size must be a positive integer."
 assert 0 <= args.bin_step[0], "bin step must be a positive integer."
@@ -229,10 +230,10 @@ def print_settings(args, clear = True):
 	'''
 	s = " # GPSeq-centrality-estimate\n\n"
 
-	if type(None) != type(args.bin_bed):
+	if type(None) != type(args.bin_bed[0]):
 		s += " Bin be file: %s\n" % args.bin_bed[0]
 
-	if 0 == args.bin_size[0] and type(None) == type(args.bin_bed):
+	if 0 == args.bin_size[0] and type(None) == type(args.bin_bed[0]):
 		s += " Using chr-wide bins.\n"
 	else:
 		s += "   Bin size : %d\n   Bin step : %d\n" % (
@@ -241,21 +242,23 @@ def print_settings(args, clear = True):
 	if 0 != args.group_size[0]:
 		s += " Group size : %d\n" % args.group_size[0]
 
-	s += "     Domain : %s\n" % csModeLabel[args.cutsite_mode - 1]
+	s += "     Domain : %s\n" % csModeLabel[args.cutsite_mode[0] - 1]
 
-	if 1 == args.cutsite_mode:
-		s += " Cutsite : %s\n" % args.cutsite_list[0]
+	if 1 == args.cutsite_mode[0]:
+		s += "    Cutsite : %s\n" % args.cutsite_bed[0]
 
 	if 0 != len(args.prefix[0]): s += " Prefix : %s\n" % args.prefix[0]
 	if 0 != len(args.suffix[0]): s += " Suffix : %s\n" % args.suffix[0]
 
-	if args.normalize: s += " Normalizing over last condition.\n"
-	if args.debug_mode: s += " Debugging mode ON.\n"
+	if args.normalize: s += "\n Normalizing over last condition.\n"
+	if args.debug_mode: s += "\n Debugging mode ON.\n"
 
-	doExclude = not type(None)==type(args.exclude)
-	if doExclude: s += "\n Excluded metrics:\n  %s\n" % ", ".join(args.exclude)
-	doInclude = not type(None)==type(args.include)
-	if doInclude: s += "\n Included metrics:\n  %s\n" % ", ".join(args.include)
+	doExclude = not type(None)==type(args.exclude[0])
+	if doExclude:
+		s += "\n Excluded metrics:\n  %s\n" % ", ".join(args.exclude[0])
+	doInclude = not type(None)==type(args.include[0])
+	if doInclude:
+		s += "\n Included metrics:\n  %s\n" % ", ".join(args.include[0])
 
 	s += "\n Output dir : %s\n  Bed files : \n" % args.output[0]
 	s += "".join(["   %s\n" % bp for bp in args.bedfile])
@@ -265,12 +268,11 @@ def print_settings(args, clear = True):
 	return(s)
 
 def ask(q):
-	"""Asks for confirmation. Aborts otherwise.
+	"""Ask for confirmation. Aborts otherwise.
 
 	Args:
 		q (string): question.
 	"""
-
 	answer = ''
 	while not answer.lower() in ['y', 'n']:
 		print("%s %s" % (q, "(y/n)"))
@@ -280,41 +282,285 @@ def ask(q):
 			sys.exit("Aborted.\n")
 		elif not 'y' == answer.lower():
 			print("Please, answer 'y' or 'n'.\n")
+	print("")
 
 def chr2chrid(c):
-	''''''
+	'''Convert chromosome string to chromosome ID.
+	Returns nan for non-standard chromosomes (i.e., not 1-22, X, Y).
 
+	Args:
+		c (str): chromosome string.
+	'''
 	c = c[3:]
 	if "X" == c: c = '23'
 	if "Y" == c: c = '24'
 	if c.isalpha(): return(np.nan)
 	else: return(int(c))
 
+def bed_read_or_check(bed):
+	'''Checks if a bed file was already parsed, and parses it otherwise.
 
-def sort_by_chr(bed):
+	Args:
+		bed (str): path to bed file, needs to be fully stored in memory.
+		bed (pbt.BedTool): parsed bed file content.
+
+	Returns:
+		pbt.BedTools: parsed bed file content.
+	'''
+	if type("") == type(bed):
+		assert os.path.isfile(bed), "missing file: %s" % bed
+		bed = pbt.BedTool(bed)
+
+	assert_msg = "either path or BedTool() expected."
+	assert type(pbt.BedTool()) == type(bed), assert_msg
+
+	return(bed)
+
+def sort_bed_by(bed, fkey = None):
+	'''Sort a bed file. By default, sorts by chromosome ID.
+	It is possible to provide a custom key function for sorting.
+
+	Args:
+		bed (str): path to bed file, needs to be fully stored in memory.
+		bed (pbt.BedTool): parsed bed file content.
+		fkey (fun): function to extract sorting keys.
+
+	Returns:
+		list: list of intervals sorted by key.
+	'''
+	bed = bed_read_or_check(bed)
+	if type(None) == type(fkey): fkey = lambda x: chr2chrid(x)
+	return(sorted(bed, key = fkey))
+
+def get_chr_size(bed, d = None):
+	'''Extract chromosome size from a bed file.
+
+	Args:
+		bed (str): path to bed file, needs to be fully stored in memory.
+
+	Returns:
+		dict: (chrom, size) item couples.
+	'''
+	
+	if type("") == type(bed):
+		assert os.path.isfile(bed), "missing file: %s" % bed
+
+	if type(None) == type(d): d = {}
+
+	with open(bed, "r+") as IH:
+		for line in IH:
+			if not line.startswith("track"):
+				i = line.strip().split("\t")
+				if not i[0] in d.keys():
+					d[i[0]] = int(i[2])
+				else:
+					if int(i[2]) >= d[i[0]]:
+						d[i[0]] = int(i[2])
+
+	return(d)
+
+def mk_bed_windows(chr_sizes, bsize, bstep):
+	'''Generate sub-chromosome windows.
+
+	Args:
+		chr_sizes (dict): (chrom, size) item tuples.
+		bsize (int): bin size.
+		bstep (int): bin step.
+
+	Returns:
+		pbt.BedTools: bin bed.
+	'''
+
+	assert bsize >= bstep, "bin size must be greater than or equal to bin step."
+
+	s = ""
+	for (c, e) in chr_sizes.items():
+		for start in range(0, e, bstep):
+			s += "%s\t%d\t%d\t\n" % (c, start, start + bsize)
+	return(pbt.BedTool(s, from_string = True))
+
+def bed_to_bins(bins, bed):
+	'''Groups UMI-uniqued reads from bed file to bins.
+
+	Args:
+		bins (pbt.BedTool): bins bed.
+		bed (pbt.BedTool): parsed bed.
+
+	Returns:
+		pbt.BedTool: grouped bed.
+	'''
+
+	# Perform intersection
+	isect = bins.intersect(bed, wa = True, wb = True, loj = True)
+
+	# Sum read counts
+	d = {}
+	bi = 1
+	with open(isect.fn, "r+") as IH:
+		for line in IH:
+			i = line.strip().split("\t")
+			i[7] = float(i[7])
+			ilabel = " ".join(i[:3])
+			if not ilabel in d.keys():
+				if i[7] < 0: i[7] = 0
+				d[ilabel] = [i[0], int(i[1]), int(i[2]),
+					"bin_%d" % bi, i[7]]
+				bi += 1
+			else:
+				d[ilabel][4] += i[7]
+
+	# Format as bed file
+	s = "\n".join(["%s\t%d\t%d\t%s\t%d" % tuple(v) for v in d.values()])
+	return(pbt.BedTool(s, from_string = True))
+
+def norm_bed(normbed, bed):
+	'''Normalize one bed over another.
+	Discards empty intersections.
+
+	Args:
+		normbed (pbt.BedTool): normbed bed.
+		bed (pbt.BedTool): parsed bed.
+
+	Returns:
+		pbt.BedTool: normalized bed.
+	'''
+	isect = normbed.intersect(bed, wb = True)
+	
+	s = ""
+	with open(isect.fn, "r+") as IH:
+		for line in IH:
+			i = line.strip().split("\t")
+			if 0 < int(i[4]):
+				data = i[5:-1]
+				data.append(int(i[9]) / float(i[4]))
+				s += "%s\t%s\t%s\t%s\t%.2f\n" % tuple(data)
+
+	return(pbt.BedTool(s, from_string = True))
+
+def mk_cutsite_domain(bedfiles, mode, csbed = None, groups = None):
+	''''''
+
+	assert mode in range(1, 5), "allowed modes: %s" % str(list(range(1, 5)))
+
+	# Identify common cutsites/groups lists for domain preparation -------------
+
+	csbed = None
+	if 1 == mode:	# Universe
+		if type(None) == type(groups):
+			# Use cutsite list
+			assert_msg = "cutsite bed required for mode 1."
+			assert type("") == type(csbed[0]), assert_msg
+			assert os.path.isfile(csbed[0]), "file not found: %s" % csbed[0]
+			csbed = pbt.BedTool(csbed[0])
+		else:
+			# Use groups as cutsites
+			assert_msg = "parsed bed tool required, got: %s" % type(groups)
+			assert type(pbt.BedTool()) == type(groups), assert_msg
+			csbed = groups
+	elif 2 == mode:	# Union
+		# Identify cutsites from all conditions
+		print("> Performing union over beds...")
+		csbed = bedfiles[0].cat(*bedfiles[1:], force_truncate = True)
+	elif 3 == mode:	# Separated
+		pass
+	elif 4 == mode:	# Intersection
+		print("> Performing intersection over beds...")
+		csbed = bedfiles[0]
+		for i in range(len(bedfiles[1:])):
+			csbed += bedfiles[i]
+
+	# Group domain if needed and save counts -----------------------------------
+
+	if type(None) != type(csbed):
+		if type(None) != type(groups):
+			# Group cutsites
+			csbed = bed_to_bins(groups, csbed)
+
+	return(csbed)
+
+def bed_calc_stats(bed):
 	''''''
 	
-	assert os.path.isfile(bed), "missing file: %s" % bed
-
-	sorted(pbt.BedTool(bed), key = lambda x: chr2chrid(x))
-
-
-def get_chr_size(bed):
-	''''''
+	# data = []
+	# with open(bed.fn, "r+") as IH:
+	# 	for line in IH:
+	# 		data.append(float(line.strip().split("\t")[4]))
+	
 	pass
+
 
 # RUN ==========================================================================
 
 print_settings(args)
 ask("Confirm settings and proceed?")
 
-# (1) Identify & sort chromosomes
-# (2) Generate bins
-# (3) Group cutsites (intersect)
-# (4) Normalize over last condition.
-# (5) Prepare domain
-# (6) Assign reads to bins (intersect)
-# (7) Calculate bin statistics
+# Parse all bed files ----------------------------------------------------------
+
+bedfiles = [pbt.BedTool(b) for b in args.bedfile]
+
+# (1) Identify & sort chromosomes ----------------------------------------------
+print("Identifying chromosomes...")
+
+chr_sizes = {}
+for b in tqdm(args.bedfile):
+	chr_sizes = get_chr_size(b, chr_sizes)
+
+# (2) Generate bins ------------------------------------------------------------
+print("Generating bins...")
+
+if not type(None) == type(args.bin_bed[0]):
+	# Custom bins
+	bins = pbt.BedTool(args.bin_bed[0])
+elif 0 == args.bin_size[0] and type(None) == type(args.bin_bed[0]):
+	# Chromosome-wide bins
+	s = "\n".join(["%s\t%d\t%d\t" % (c, 0, e) for (c, e) in chr_sizes.items()])
+	bins = pbt.BedTool(s, from_string = True)
+else:
+	# Sub-chromosome bins
+	bins = mk_bed_windows(chr_sizes, args.bin_size[0], args.bin_step[0])
+
+# (3) Group cutsites (intersect) -----------------------------------------------
+
+groups = None
+if 0 != args.group_size[0]:
+	print("Grouping reads...")
+
+	# Generate groups bed
+	groups = mk_bed_windows(chr_sizes, args.group_size[0], args.group_size[0])
+
+	# Intersect
+	for i in tqdm(range(len(bedfiles))):
+		bedfiles[i] = bed_to_bins(groups, bedfiles[i])
+
+# (4) Normalize over last condition --------------------------------------------
+
+if args.normalize:
+	print("Normalizing over last condition...")
+
+	# Identify last condition and remove it from the bed pool
+	normbed = bedfiles[-1]
+	bedfiles = bedfiles[:-1]
+
+	# Normalize
+	for i in tqdm(range(len(bedfiles))):
+		bedfiles[i] = norm_bed(normbed, bedfiles[i])
+
+# (5) Prepare domain -----------------------------------------------------------
+print("Preparing cutsites...")
+
+csbed = mk_cutsite_domain(bedfiles, args.cutsite_mode[0],
+	csbed = args.cutsite_bed, groups = groups)
+
+# (6) Assign reads to bins (intersect) -----------------------------------------
+print("Assigning to bins...")
+
+for i in tqdm(range(len(bedfiles))):
+	bedfiles[i] = bed_to_bins(bins, bedfiles[i])
+
+# (7) Calculate bin statistics -------------------------------------------------
+
+bstats = [bed_calc_stats(b) for b in tqdm(bedfiles)]
+
 # (8) Combine condition into a single table
 # (9) Estimate centrality
 # (10) Rank bins
