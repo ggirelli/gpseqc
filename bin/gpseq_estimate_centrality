@@ -795,10 +795,13 @@ def bin_centrality(df, mlist, progress = True):
 
 	return(odf)
 
-def rank_centrality(cdf, mlist, progress = True):
+def rank_centrality(cdf, mlist, progress = True, chrWide = False):
 	''''''
-	labels = ["%s:%s-%s" % tuple(cdf.ix[i, :].tolist()[:3])
-		for i in cdf.index]
+	if chrWide:
+		labels = [cdf["chrom"].values[i] for i in cdf.index]
+	else:
+		labels = ["%s:%s-%s" % tuple(cdf.ix[i, :].tolist()[:3])
+			for i in cdf.index]
 	
 	gen = (m for m in mlist if m in cdf.columns)
 	if progress: gen = tqdm(gen, total = len(mlist))
@@ -930,7 +933,7 @@ est.to_csv(os.path.join(args.output[0], "%sestimated.%s%s.tsv" % (
 print("Ranking bins...")
 
 # Rank bins
-rank = rank_centrality(est, toCalc)
+rank = rank_centrality(est, toCalc, chrWide = args.bin_size[0] == 0)
 
 # Write output
 rank.to_csv(os.path.join(args.output[0], "%sranked.%s%s.tsv" % (
