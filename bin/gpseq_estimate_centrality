@@ -44,10 +44,13 @@
 # DEPENDENCIES =================================================================
 
 import argparse
+from io import StringIO
 import numpy as np
 import os
+import pandas as pd
 import pybedtools as pbt
 import sys
+import tempfile
 from tqdm import tqdm
 
 # PARAMETERS ===================================================================
@@ -151,6 +154,8 @@ parser.add_argument('-r', '--prefix', type = str, nargs = 1,
 	help = """Output name prefix.""", metavar = "prefix", default = [""])
 parser.add_argument('-u', '--suffix', type = str, nargs = 1,
 	help = """Output name suffix.""", metavar = "suffix", default = [""])
+parser.add_argument('-T', type = str, nargs = 1,
+	help = '''Path to temporary folder.''', default = [tempfile.gettempdir()])
 
 # Flag parameters
 parser.add_argument('-y', '--do-all', action = 'store_const',
@@ -218,6 +223,12 @@ if 0 != args.bin_size[0] and 0 != args.group_size[0]:
 if 0 != args.bin_step[0] and 0 != args.group_size:
 	assert_msg = "bin step must be greater than group size."
 	assert args.bin_step[0] > args.group_size[0], assert_msg
+
+assert os.path.isdir(args.T[0]), "temporary folder not found: %s" % args.T[0]
+pbt.set_tempdir(args.T[0])
+
+if '.' != args.prefix[0][-1]: args.prefix[0] += '.'
+if '.' != args.suffix[0][0]: args.suffix[0] = '.' + args.suffix[0]
 
 # FUNCTION =====================================================================
 
@@ -380,7 +391,8 @@ def mk_bed_windows(chr_sizes, bsize, bstep):
 	return(pbt.BedTool(s, from_string = True))
 
 def bed_to_bins(bins, bed):
-	'''Groups UMI-uniqued reads from bed file to bins.
+	'''Assign regions to bins. Each bin will appear once per each intersecting
+	region, with the region value field appended.
 
 	Args:
 		bins (pbt.BedTool): bins bed.
@@ -389,6 +401,38 @@ def bed_to_bins(bins, bed):
 	Returns:
 		pbt.BedTool: grouped bed.
 	'''
+
+	# Perform intersection
+	isect = bins.intersect(bed, wa = True, wb = True, loj = True)
+
+	# Sum read counts
+	d = []
+	bi = 1
+	with open(isect.fn, "r+") as IH:
+		for line in IH:
+			i = line.strip().split("\t")
+			data = i[:3]
+			if float(i[7]) < 0: data.append("0")
+			else: data.append(i[7])
+			d.append("\t".join(data))
+
+	# Format as bed file
+	return(pbt.BedTool("\n".join(d), from_string = True))
+
+def bed_to_combined_bins(bins, bed, fcomb = None):
+	'''Groups UMI-uniqued reads from bed file to bins.
+
+	Args:
+		bins (pbt.BedTool): bins bed.
+		bed (pbt.BedTool): parsed bed.
+		fcomb (fun): lambda(x,y) for combining.
+
+	Returns:
+		pbt.BedTool: grouped bed.
+	'''
+
+	if type(None) == type(fcomb):
+		fcomb = lambda x, y: x + y
 
 	# Perform intersection
 	isect = bins.intersect(bed, wa = True, wb = True, loj = True)
@@ -407,7 +451,7 @@ def bed_to_bins(bins, bed):
 					"bin_%d" % bi, i[7]]
 				bi += 1
 			else:
-				d[ilabel][4] += i[7]
+				d[ilabel][4] = fcomb(d[ilabel][4], i[7])
 
 	# Format as bed file
 	s = "\n".join(["%s\t%d\t%d\t%s\t%d" % tuple(v) for v in d.values()])
@@ -438,7 +482,21 @@ def norm_bed(normbed, bed):
 	return(pbt.BedTool(s, from_string = True))
 
 def mk_cutsite_domain(bedfiles, mode, csbed = None, groups = None):
-	''''''
+	'''Build bed file with list of cutsites.
+	The cutsite domain can be specified as follows:
+	1 - all genomic cutsites (universe)
+	2 - all cutsites restricted in the experiment (union)
+	3 - all cutsites restricted in a condition (separate)
+	4 - all cutsites restricted in all conditions (intersection)
+	Default is 3 (separate). Also, note that if option 1 is selected, an
+	additional argument -l is required.
+
+	Args:
+		bedfiles (list): list of bed files.
+		mode (int): custite domain mode (see description).
+		csbed (pbt.BedTools): parsed bed with all cutsite in the reference.
+		groups (pbt.BedTools): parsed bed with groups, if grouping.
+	'''
 
 	assert mode in range(1, 5), "allowed modes: %s" % str(list(range(1, 5)))
 
@@ -474,25 +532,58 @@ def mk_cutsite_domain(bedfiles, mode, csbed = None, groups = None):
 	if type(None) != type(csbed):
 		if type(None) != type(groups):
 			# Group cutsites
-			csbed = bed_to_bins(groups, csbed)
+			csbed = bed_to_combined_bins(groups, csbed)
 
 	return(csbed)
 
 def bed_calc_stats(bed):
-	''''''
-	
-	# data = []
-	# with open(bed.fn, "r+") as IH:
-	# 	for line in IH:
-	# 		data.append(float(line.strip().split("\t")[4]))
-	
-	pass
+	'''Calculate bin-wise statistics.
 
+	Args:
+		bed (pbt.BedTool): parsed bed file.
+
+	Returns:
+		pd.DataFrame: data frame with bin statistics.
+	'''
+	
+	data = {}
+	with open(bed.fn, "r+") as IH:
+		for line in IH:
+			i = line.strip().split("\t")
+			ilabel = "\t".join(i[:3])
+			if ilabel in data.keys():
+				data[ilabel].append(float(i[3]))
+			else:
+				data[ilabel] = [float(i[3])]
+	
+	s = ""
+	for (k, v) in data.items():
+		s += "%s\t%.2f\t%.2f\t%.2f\t%d\n" % (
+			k, sum(v), np.mean(v), np.std(v), len(v))
+
+	df = pd.read_csv(StringIO(s), sep = "\t")
+	df.columns = ["chrom", "start", "end", "sum", "mean", "std", "count"]
+
+	return(df)
 
 # RUN ==========================================================================
 
-print_settings(args)
+ssettings = print_settings(args)
 ask("Confirm settings and proceed?")
+
+# Build run description string
+descr = ""
+if type(None) != type(args.bin_bed[0]): descr += "customBins"
+elif 0 == args.bin_size[0]: descr += "bins.chrWide"
+else: descr += "bins.size%d.step%d" % (args.bin_size[0], args.bin_step[0])
+if 0 != args.group_size[0]: descr += ".group%d" % args.group_size[0]
+descr += ".csm%d" % args.cutsite_mode[0]
+if args.normalize: descr += ".norm"
+
+# Save confirmed settings
+with open(os.path.join(args.output[0], "%ssettings.%s%s.txt" % (
+	args.prefix[0], descr, args.suffix[0])), "w+") as OH:
+	OH.write(ssettings)
 
 # Parse all bed files ----------------------------------------------------------
 
@@ -530,7 +621,7 @@ if 0 != args.group_size[0]:
 
 	# Intersect
 	for i in tqdm(range(len(bedfiles))):
-		bedfiles[i] = bed_to_bins(groups, bedfiles[i])
+		bedfiles[i] = bed_to_combined_bins(groups, bedfiles[i])
 
 # (4) Normalize over last condition --------------------------------------------
 
@@ -558,13 +649,26 @@ for i in tqdm(range(len(bedfiles))):
 	bedfiles[i] = bed_to_bins(bins, bedfiles[i])
 
 # (7) Calculate bin statistics -------------------------------------------------
+print("Calculating bin statistics...")
 
 bstats = [bed_calc_stats(b) for b in tqdm(bedfiles)]
 
-# (8) Combine condition into a single table
-# (9) Estimate centrality
-# (10) Rank bins
-# (11) Write output
+# (8) Combine condition into a single table ------------------------------------
+print("Combining information...")
+
+for i in range(len(bstats)):
+	bstats[i]['cond'] = i + 1
+	bstats[i]["cond_nreads"] = sum(bstats[i]['count'].values)
+comb = pd.concat(bstats).sort_values(["chrom", "start", "end"])
+comb.to_csv(os.path.join(args.output[0], "%scombined.%s%s.tsv" % (
+	args.prefix[0], descr, args.suffix[0])),
+	header = True, index = False, sep = "\t")
+
+# (9) Estimate centrality ------------------------------------------------------
+
+# (10) Rank bins ---------------------------------------------------------------
+
+# (11) Write output ------------------------------------------------------------
 
 # End --------------------------------------------------------------------------
 
