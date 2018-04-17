@@ -178,40 +178,48 @@ args = parser.parse_args()
 
 # Check input ------------------------------------------------------------------
 
+# At least two bed files if not normalizing
 assert_msg = "at least two (2) GPSeq condition bedfiles,"
 assert_msg += " in increasing order of restriction"
 assert_msg += "intensity are required."
 assert 2 <= len(args.bedfile), assert_msg
 
+# At least 3 bed files if normalizing
 if args.normalize:
 	assert_msg = "at least two (3) GPSeq condition bedfiles,"
 	assert_msg += " in increasing order of restriction intensity are"
 	assert_msg += " required when normalization is on (-n)."
 	assert 3 <= len(args.bedfile), assert_msg
 
+# Bedtools must be installed
 assert pbt.check_for_bedtools(), "bedtools required."
 
+# -e and -i cannot be used together
 doExclude = not type(None)==type(args.exclude[0])
 doInclude = not type(None)==type(args.include[0])
 assert not(doExclude and doInclude), "options -e/-i cannot be used together."
 
+# Identify selected metrics
+if doInclude: toCalc = args.include[0]
+if doExclude: toCalc = [m for m in metrics if m not in args.exclude[0]]
+
+# All provided bed files must exist
 for bp in args.bedfile:
 	assert os.path.isfile(bp), "file not found: '%s'" % bp
 
-assert_msg = "missing -l option with -c1 and -g."
+# -l option is mandatory with -gc1
+assert_msg = "missing -l option with -gc1."
 assertc = 1 == args.cutsite_mode[0] and 0 == args.group_size[0]
 assert not(assertc and type(None) == type(args.cutsite_bed[0])), assert_msg
 
+# Bin size, bin step and group size must be positive
 assert 0 <= args.bin_size[0], "bin size must be a positive integer."
 assert 0 <= args.bin_step[0], "bin step must be a positive integer."
 assert 0 <= args.group_size[0], "group size must be a positive integer."
 
+# Bin size >= bin step
 assert_msg = "bin size must be greater then or equal to bin step."
 assert args.bin_size[0] >= args.bin_step[0], assert_msg
-
-if 0 != args.bin_step[0] and 0 == args.bin_size[0]:
-	print("wARNING: missing bin size, ignoring -p option.")
-	args.bin_step = [0]
 
 if args.bin_size[0] != 0 and args.bin_step[0] == 0:
 	args.bin_step = args.bin_size
@@ -224,9 +232,15 @@ if 0 != args.bin_step[0] and 0 != args.group_size:
 	assert_msg = "bin step must be greater than group size."
 	assert args.bin_step[0] > args.group_size[0], assert_msg
 
+if 0 != args.bin_step[0] and 0 == args.bin_size[0]:
+	print("wARNING: missing bin size, ignoring -p option.")
+	args.bin_step = [0]
+
+# Temporary folder must exist
 assert os.path.isdir(args.T[0]), "temporary folder not found: %s" % args.T[0]
 pbt.set_tempdir(args.T[0])
 
+# Adjust prefix/suffix if needed
 if '.' != args.prefix[0][-1]: args.prefix[0] += '.'
 if '.' != args.suffix[0][0]: args.suffix[0] = '.' + args.suffix[0]
 
@@ -566,6 +580,10 @@ def bed_calc_stats(bed):
 
 	return(df)
 
+def bin_centrality(imat, calc, mode, cumrat, ratcum):
+	''''''
+
+
 # RUN ==========================================================================
 
 ssettings = print_settings(args)
@@ -656,15 +674,25 @@ bstats = [bed_calc_stats(b) for b in tqdm(bedfiles)]
 # (8) Combine condition into a single table ------------------------------------
 print("Combining information...")
 
+# Add condition columns
 for i in range(len(bstats)):
-	bstats[i]['cond'] = i + 1
 	bstats[i]["cond_nreads"] = sum(bstats[i]['count'].values)
+	bstats[i]['cond'] = i + 1
+
+# Concatenate
 comb = pd.concat(bstats).sort_values(["chrom", "start", "end"])
+comb.index = range(comb.shape[0])
+
+# Write output
 comb.to_csv(os.path.join(args.output[0], "%scombined.%s%s.tsv" % (
 	args.prefix[0], descr, args.suffix[0])),
 	header = True, index = False, sep = "\t")
 
 # (9) Estimate centrality ------------------------------------------------------
+print("Estimating centrality...")
+
+prob_mat = preprocess_bin_centrality(comb, "p")
+print(prob_mat)
 
 # (10) Rank bins ---------------------------------------------------------------
 
