@@ -120,44 +120,10 @@ def normalize(normbed, bed):
 
     return(pbt.BedTool(s, from_string = True))
 
-def read_or_check(bed):
-    '''Checks if a bed file was already parsed, and parses it otherwise.
-
-    Args:
-        bed (str): path to bed file, needs to be fully stored in memory.
-        bed (pbt.BedTool): parsed bed file content.
-
-    Returns:
-        pbt.BedTools: parsed bed file content.
-    '''
-    if type("") == type(bed):
-        assert os.path.isfile(bed), "missing file: %s" % bed
-        bed = pbt.BedTool(bed)
-
-    assert_msg = "either path or BedTool() expected."
-    assert type(pbt.BedTool()) == type(bed), assert_msg
-
-    return(bed)
-
-def sort_by(bed, fkey = None):
-    '''Sort a bed file. By default, sorts by chromosome ID.
-    It is possible to provide a custom key function for sorting.
-
-    Args:
-        bed (str): path to bed file, needs to be fully stored in memory.
-        bed (pbt.BedTool): parsed bed file content.
-        fkey (fun): function to extract sorting keys.
-
-    Returns:
-        list: list of intervals sorted by key.
-    '''
-    bed = bed_read_or_check(bed)
-    if type(None) == type(fkey): fkey = lambda x: chr2chrid(x)
-    return(sorted(bed, key = fkey))
-
 def to_bins(bins, bed):
     '''Assign regions to bins. Each bin will appear once per each intersecting
-    region, with the region value field appended.
+    region, with the region value field appended. For each region in bed, only
+    the first intersection is considered.
 
     Args:
         bins (pbt.BedTool): bins bed.
@@ -170,15 +136,23 @@ def to_bins(bins, bed):
     # Perform intersection
     isect = bins.intersect(bed, wa = True, wb = True, loj = True)
 
-    # Sum read counts
-    d = []
-    bi = 1
+    d = []              # Output container
+    encountered = set() # Already encountered regions
+
+    # Iterate intersection
     with open(isect.fn, "r+") as IH:
         for line in IH:
             i = line.strip().split("\t")
+
+            # Skip if not the first intersection
+            if i[6] in encountered: continue
+            encountered.add(i[6])
+
+            # Prepare output
             data = i[:3]
             if float(i[7]) < 0: data.append("0")
             else: data.append(i[7])
+
             d.append("\t".join(data))
 
     # Format as bed file
