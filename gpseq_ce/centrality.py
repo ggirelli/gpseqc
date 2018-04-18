@@ -56,7 +56,7 @@ def calc_pr(st, ci):
     if ci == 0: return(calc_p(st, 0))
     else:
         p = st.ix[:ci, "sum"].sum()
-        p /= (st.ix[:ci, "cond_nreads"].sum() * st.ix[0, 'count'])
+        p /= np.sum(st.ix[:ci, "cond_nreads"].values * st.ix[:ci, "count"].values)
         return(p)
 
 def calc_var(st, ci):

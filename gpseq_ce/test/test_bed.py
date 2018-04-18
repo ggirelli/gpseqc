@@ -3,7 +3,7 @@
 '''
 @author: Gabriele Girelli
 @contact: gigi.ga90@gmail.com
-@description: bed-related methods.
+@description: bed-related method tests.
 '''
 
 # DEPENDENCIES =================================================================
