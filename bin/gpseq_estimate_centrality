@@ -73,6 +73,9 @@ Description:
   (10) Rank bins
   (11) Write output
 
+  A visual schema is available at:
+   https://milkr.io/ggirelli/GPSeq-centrality-estimate
+
 Notes:
 
  # Cutsite domain --------------------------------------------------------------
@@ -422,7 +425,6 @@ bstats = [bed.calc_stats(b) for b in tqdm(bedfiles)]
 
 # Add condition columns
 for i in range(len(bstats)):
-	bstats[i]["cond_nreads"] = sum(bstats[i]['sum'].values)
 	bstats[i]['cond'] = i + 1
 
 	# Save if debugging

@@ -45,6 +45,7 @@ def calc_stats(bed):
 
     df = pd.DataFrame(s)
     df.columns = ["chrom", "start", "end", "sum", "mean", "std", "count"]
+    df["cond_nreads"] = sum(df['sum'].values)
 
     return(df)
 
