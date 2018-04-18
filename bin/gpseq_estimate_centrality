@@ -45,6 +45,7 @@
 
 import argparse
 import os
+import numpy as np
 import pandas as pd
 import pybedtools as pbt
 import sys
@@ -425,6 +426,7 @@ bstats = [bed.calc_stats(b) for b in tqdm(bedfiles)]
 
 # Add condition columns
 for i in range(len(bstats)):
+	bstats[i]['cond_nreads'] = np.sum([float(x['score']) for x in bedfiles[i]])
 	bstats[i]['cond'] = i + 1
 
 	# Save if debugging
