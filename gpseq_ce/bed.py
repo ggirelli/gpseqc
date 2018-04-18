@@ -15,6 +15,18 @@ import pybedtools as pbt
 
 # FUNCTIONS ====================================================================
 
+def is_overlapping(bed):
+    '''Check if a bed contains overlapping features.
+
+    Args:
+        bed (pbt.BedTools): parsed bed file.
+
+    Returns:
+        bool
+    '''
+    isect = bed.intersect(bed, wao = True)
+    return(bed.count() != isect.count())
+
 def calc_stats(bed):
     '''Calculate bin-wise statistics.
 
@@ -31,9 +43,9 @@ def calc_stats(bed):
             i = line.strip().split("\t")
             ilabel = "\t".join(i[:3])
             if ilabel in data.keys():
-                data[ilabel].append(float(i[3]))
+                data[ilabel].append(float(i[4]))
             else:
-                data[ilabel] = [float(i[3])]
+                data[ilabel] = [float(i[4])]
 
     s = []
     for (k, v) in data.items():
@@ -97,8 +109,8 @@ def mk_windows(chr_sizes, bsize, bstep):
     return(pbt.BedTool(s, from_string = True))
 
 def normalize(normbed, bed):
-    '''Normalize one bed over another.
-    Discards empty intersections.
+    '''Normalize one bed over another. Discards empty intersections.
+    Consider only the first intersection of any region of bed with normbed.
 
     Args:
         normbed (pbt.BedTool): normbed bed.
@@ -109,22 +121,34 @@ def normalize(normbed, bed):
     '''
     isect = normbed.intersect(bed, wb = True)
     
+    encountered = set()
+    
     s = ""
     with open(isect.fn, "r+") as IH:
         for line in IH:
             i = line.strip().split("\t")
-            if 0 < int(i[4]):
-                data = i[5:-1]
-                data.append(int(i[9]) / float(i[4]))
-                s += "%s\t%s\t%s\t%s\t%.2f\n" % tuple(data)
+
+            s += line
+            if i[3] in encountered: continue
+            encountered.add(i[3])
+
+
+            # if 0 < int(i[4]):
+            #     data = i[5:-1]
+            #     data.append(int(i[9]) / float(i[4]))
+            #     data.extend([i[4], i[9]])
+            #     s += "%s\t%s\t%s\t%s\t%.2f\t%s\t%s\n" % tuple(data)
 
     return(pbt.BedTool(s, from_string = True))
 
 def to_bins(bins, bed):
     '''Assign regions to bins. Each bin will appear once per each intersecting
-    region, with the region value field appended. For each region in bed, only
-    the first intersection is considered. Each region in the output will
-    have the value 'row_XXX' in the name column.
+    region, with the region value field appended. 
+
+    If the bins are non-overlapping, for each region in the bed only the largest
+    intersection is considered.
+
+    Each region in the output will have the value 'row_XXX' in the name column.
 
     Args:
         bins (pbt.BedTool): bins bed.
@@ -134,37 +158,58 @@ def to_bins(bins, bed):
         pbt.BedTool: grouped bed.
     '''
 
-    # Perform intersection
-    isect = bins.intersect(bed, wa = True, wb = True, loj = True)
+    # Enforce bins to BED3
+    bins = bins.cut(range(3))
 
-    d = []              # Output container
+    # Perform intersection
+    isect = bins.intersect(bed, wao = True)
+
+    d = {}              # Output container
     bi = 1              # Region counter
-    encountered = set() # Already encountered regions
 
     # Iterate intersection
-    with open(isect.fn, "r+") as IH:
-        for line in IH:
-            i = line.strip().split("\t")
+    def parsegen(isect):
+        with open(isect.fn, "r+") as IH:
+            for line in IH:
+                yield line.strip().split("\t")
 
-            # Skip if not the first intersection
-            if i[6] in encountered: continue
-            encountered.add(i[6])
-
-            # Prepare output
+    if not is_overlapping(bins): # Retain only largest intersections
+        def d_update(d, i, bi):
+            ''''''
             data = i[:3]
             data.append("row_%d" % bi)
             if float(i[7]) < 0: data.append("0")
             else: data.append(i[7])
+            d[i[6]] = (int(i[8]), bi, data)
+            return(d)
 
-            d.append("\t".join(data))
+        for i in parsegen(isect):
+            # Retain only largest intersection
+            if i[6] in d.keys():
+                if int(i[8]) > d[i[6]][0]: d = d_update(d, i, d[i[6]][1])
+            else:
+                d = d_update(d, i, bi)
+                bi += 1
+
+    else: # Retain all intersactions
+        for i in parsegen(isect):
+            data = i[:3]
+            data.append("row_%d" % bi)
+            if float(i[7]) < 0: data.append("0")
+            else: data.append(i[7])
+            d[bi] = (int(i[8]), bi, data)
             bi += 1
 
+
+    # Assemble
+    d = "\n".join(["\t".join(x[2]) for x in d.values()])
+
     # Format as bed file
-    return(pbt.BedTool("\n".join(d), from_string = True))
+    return(pbt.BedTool(d, from_string = True))
 
 def to_combined_bins(bins, bed, fcomb = None):
     '''Groups UMI-uniqued reads from bed file to bins. For each region in bed,
-    only the first intersection is considered. Each region in the output will
+    only the largest intersection is considered. Each region in the output will
     have the value 'row_XXX' in the name column.
 
     Args:
@@ -176,38 +221,75 @@ def to_combined_bins(bins, bed, fcomb = None):
         pbt.BedTool: grouped bed.
     '''
 
+    # Enforce bins to BED3
+    bins = bins.cut(range(3))
+
     # Default combination style: sum
     if type(None) == type(fcomb): fcomb = lambda x, y: x + y
 
     # Perform intersection
-    isect = bins.intersect(bed, wa = True, wb = True, loj = True)
+    isect = bins.intersect(bed, wao = True)
 
-    d = {}              # Output container
-    bi = 1              # Region counter
-    encountered = set() # Already encountered regions
+    d2 = {}
+    bi = 1  # Region counter
 
-    # Iterate intersection
-    with open(isect.fn, "r+") as IH:
-        for line in IH:
-            i = line.strip().split("\t")
+    if not is_overlapping(bins): # Retain only largest intersection
 
-            # Skip if not the first intersection
-            if i[6] in encountered: continue
-            encountered.add(i[6])
+        # Extract largest intersections ----------------------------------------
 
-            # Prepare output
-            i[7] = float(i[7])
+        def d_update(d, i):
+            ''''''
+            data = i[:3]
+            if float(i[7]) < 0: data.append("0")
+            else: data.append(i[7])
+            d[i[6]] = (int(i[8]), data)
+            return(d)
+
+        d = {}
+        with open(isect.fn, "r+") as IH:
+            for line in IH:
+                i = line.strip().split("\t")
+
+                # Retain only largest intersection
+                if i[6] in d.keys():
+                    if int(i[8]) > d[i[6]][0]: d = d_update(d, i)
+                else: d = d_update(d, i)
+
+        # Combine intersections ------------------------------------------------
+
+        for (isize, i) in d.values():
+            i[-1] = float(i[-1])
             ilabel = " ".join(i[:3])
-            if not ilabel in d.keys():
-                if i[7] < 0: i[7] = 0
-                d[ilabel] = [i[0], int(i[1]), int(i[2]),
-                    "row_%d" % bi, i[7]]
+
+            # Combine
+            if not ilabel in d2.keys():
+                if i[-1] < 0: i[-1] = 0
+                d2[ilabel] = [i[0], int(i[1]), int(i[2]),
+                    "row_%d" % bi, i[-1]]
                 bi += 1
             else:
-                d[ilabel][4] = fcomb(d[ilabel][4], i[7])
+                d2[ilabel][4] = fcomb(d2[ilabel][4], i[-1])
+    
+    else: # Retain all intersections
+
+        with open(isect.fn, "r+") as IH:
+            for line in IH:
+                i = line.strip().split("\t")
+
+                i[7] = float(i[7])
+                ilabel = " ".join(i[:3])
+
+                # Combine
+                if not ilabel in d2.keys():
+                    if i[7] < 0: i[7] = 0
+                    d2[ilabel] = [i[0], int(i[1]), int(i[2]),
+                        "row_%d" % bi, i[7]]
+                    bi += 1
+                else:
+                    d2[ilabel][4] = fcomb(d2[ilabel][4], i[7])
 
     # Format as bed file
-    s = "\n".join(["%s\t%d\t%d\t%s\t%d" % tuple(v) for v in d.values()])
+    s = "\n".join(["%s\t%d\t%d\t%s\t%d" % tuple(v) for v in d2.values()])
     return(pbt.BedTool(s, from_string = True))
 
 # END ==========================================================================
