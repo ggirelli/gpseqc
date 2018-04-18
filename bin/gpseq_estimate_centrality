@@ -551,6 +551,15 @@ def mk_cutsite_domain(bedfiles, mode, csbed = None, groups = None):
 
 	return(csbed)
 
+def apply_domain(bedfiles, csbed, groups):
+	''''''
+
+	for i in tqdm(range(len(bedfiles))):
+		if type(None) == type(csbed):
+			pass
+		else:
+			pass
+
 def bed_calc_stats(bed):
 	'''Calculate bin-wise statistics.
 
@@ -859,6 +868,9 @@ else:
 	# Sub-chromosome bins
 	bins = mk_bed_windows(chr_sizes, args.bin_size[0], args.bin_step[0])
 
+if args.debug_mode: bins.saveas(os.path.join(args.output[0],
+	"%sbins.%s%s.bed" % (args.prefix[0], descr, args.suffix[0])))
+
 # (3) Group cutsites (intersect) -----------------------------------------------
 
 groups = None
@@ -871,6 +883,9 @@ if 0 != args.group_size[0]:
 	# Intersect
 	for i in tqdm(range(len(bedfiles))):
 		bedfiles[i] = bed_to_combined_bins(groups, bedfiles[i])
+		if args.debug_mode: bedfiles[i].saveas(os.path.join(args.output[0],
+			"%sgrouped.%s.%s%s.tsv" % (args.prefix[0], descr,
+				os.path.basename(args.bedfile[i]), args.suffix[0])))
 
 # (4) Normalize over last condition --------------------------------------------
 
@@ -884,18 +899,27 @@ if args.normalize:
 	# Normalize
 	for i in tqdm(range(len(bedfiles))):
 		bedfiles[i] = norm_bed(normbed, bedfiles[i])
+		if args.debug_mode: bedfiles[i].saveas(os.path.join(args.output[0],
+			"%snormlast.%s.%s%s.tsv" % (args.prefix[0], descr,
+				os.path.basename(args.bedfile[i]), args.suffix[0])))
 
 # (5) Prepare domain -----------------------------------------------------------
 print("Preparing cutsites...")
 
 csbed = mk_cutsite_domain(bedfiles, args.cutsite_mode[0],
 	csbed = args.cutsite_bed, groups = groups)
+if not type(None) == type(csbed) and args.debug_mode:
+	csbed.saves(os.path.join(args.output[0],
+		"%scutsite.%s%s.bed" % (args.prefix[0], descr, args.suffix[0])))
 
 # (6) Assign reads to bins (intersect) -----------------------------------------
 print("Assigning to bins...")
 
 for i in tqdm(range(len(bedfiles))):
 	bedfiles[i] = bed_to_bins(bins, bedfiles[i])
+	if args.debug_mode: bedfiles[i].saveas(os.path.join(args.output[0],
+		"%sintersected.%s.%s%s.tsv" % (args.prefix[0], descr,
+			os.path.basename(args.bedfile[i]), args.suffix[0])))
 
 # (7) Calculate bin statistics -------------------------------------------------
 print("Calculating bin statistics...")
