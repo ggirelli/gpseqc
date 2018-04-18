@@ -177,12 +177,13 @@ def to_bins(bins, bed):
             ''''''
             data = i[:3]
             data.append("row_%d" % bi)
-            if float(i[7]) < 0: data.append("0")
-            else: data.append(i[7])
+            data.append(i[7])
             d[i[6]] = (int(i[8]), bi, data)
             return(d)
 
         for i in parsegen(isect):
+            if float(i[7]) < 0: continue
+
             # Retain only largest intersection
             if i[6] in d.keys():
                 if int(i[8]) > d[i[6]][0]: d = d_update(d, i, d[i[6]][1])
@@ -192,10 +193,11 @@ def to_bins(bins, bed):
 
     else: # Retain all intersactions
         for i in parsegen(isect):
+            if float(i[7]) < 0: continue
+
             data = i[:3]
             data.append("row_%d" % bi)
-            if float(i[7]) < 0: data.append("0")
-            else: data.append(i[7])
+            data.append(i[7])
             d[bi] = (int(i[8]), bi, data)
             bi += 1
 
@@ -239,8 +241,7 @@ def to_combined_bins(bins, bed, fcomb = None):
         def d_update(d, i):
             ''''''
             data = i[:3]
-            if float(i[7]) < 0: data.append("0")
-            else: data.append(i[7])
+            data.append(i[7])
             d[i[6]] = (int(i[8]), data)
             return(d)
 
@@ -248,6 +249,7 @@ def to_combined_bins(bins, bed, fcomb = None):
         with open(isect.fn, "r+") as IH:
             for line in IH:
                 i = line.strip().split("\t")
+                if float(i[7]) < 0: continue
 
                 # Retain only largest intersection
                 if i[6] in d.keys():
@@ -276,6 +278,8 @@ def to_combined_bins(bins, bed, fcomb = None):
                 i = line.strip().split("\t")
 
                 i[7] = float(i[7])
+                if i[7] < 0: continue
+
                 ilabel = " ".join(i[:3])
 
                 # Combine

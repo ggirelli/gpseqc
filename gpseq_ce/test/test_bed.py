@@ -29,15 +29,18 @@ winstr += "1\t25\t75\n"
 winstr += "1\t50\t100\n"
 winstr += "1\t75\t125\n"
 
-# Bins with bin size == bin step = 50, chr-size = 100
+# Bins with bin size == bin step = 50, chr-size = 200
 nobinstr  = "1\t0\t50\n"
 nobinstr += "1\t50\t100\n"
+nobinstr += "1\t100\t150\n"
+nobinstr += "1\t150\t200\n"
 
-# Bins with bin size = 50, bin step = 25, chr-size = 100
+# Bins with bin size = 50, bin step = 25, chr-size = 150
 obinstr  = "1\t0\t50\n"
 obinstr += "1\t25\t75\n"
 obinstr += "1\t50\t100\n"
 obinstr += "1\t75\t125\n"
+obinstr += "1\t100\t150\n"
 
 # Expected binning of bedstr with nobinstr
 nobinnedstr  = "1\t0\t50\trow_1\t1\n"
@@ -56,6 +59,7 @@ obinnedstr += "1\t50\t100\trow_7\t4\n"
 obinnedstr += "1\t50\t100\trow_8\t5\n"
 obinnedstr += "1\t75\t125\trow_9\t4\n"
 obinnedstr += "1\t75\t125\trow_10\t5\n"
+obinnedstr += "1\t100\t150\trow_11\t5\n"
 
 # Expected combined (sum) binning of bedstr with nobinstr
 nobinnedsumstr  = "1\t0\t50\trow_1\t3\n"
@@ -66,6 +70,7 @@ obinnedsumstr = "1\t0\t50\trow_1\t3\n"
 obinnedsumstr += "1\t25\t75\trow_2\t7\n"
 obinnedsumstr += "1\t50\t100\trow_3\t11\n"
 obinnedsumstr += "1\t75\t125\trow_4\t9\n"
+obinnedsumstr += "1\t100\t150\trow_5\t5\n"
 
 # Normalization of bedstr against itself
 normstr  = "1\t0\t50\tr1\t1.00\n"
@@ -78,7 +83,8 @@ binstatsdf = pd.DataFrame([
     ['1', 0, 50, 3.0, 1.5, 0.5, 2],
     ['1', 25, 75, 7.0, 7/3., np.std([1, 2, 4]), 3],
     ['1', 50, 100, 11.0, 11/3, np.std([2, 4, 5]), 3],
-    ['1', 75, 125, 9.0, 4.5, 0.5, 2]
+    ['1', 75, 125, 9.0, 4.5, 0.5, 2],
+    ['1', 100, 150, 5.0, 5.0, 0.0, 1]
 ])
 binstatsdf.columns = ["chrom", "start", "end", "sum", "mean", "std", "count"]
 
@@ -90,7 +96,6 @@ def test_calcStats():
     assert b.shape[0] == binstatsdf.shape[0]
     for i in range(b.shape[0]):
         assert b.ix[i, :].tolist() == binstatsdf.ix[i, :].tolist()
-        
 
 def test_mkWindows():
     b = bed.mk_windows({1:100}, 50, 25)
