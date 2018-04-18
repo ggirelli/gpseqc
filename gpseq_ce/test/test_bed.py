@@ -73,10 +73,24 @@ normstr += "1\t25\t75\tr2\t1.00\n"
 normstr += "1\t50\t100\tr3\t1.00\n"
 normstr += "1\t75\t125\tr4\t1.00\n"
 
+# Statistics for obinnedstr
+binstatsdf = pd.DataFrame([
+    ['1', 0, 50, 3.0, 1.5, 0.5, 2],
+    ['1', 25, 75, 7.0, 7/3., np.std([1, 2, 4]), 3],
+    ['1', 50, 100, 11.0, 11/3, np.std([2, 4, 5]), 3],
+    ['1', 75, 125, 9.0, 4.5, 0.5, 2]
+])
+binstatsdf.columns = ["chrom", "start", "end", "sum", "mean", "std", "count"]
+
 # FUNCTIONS ====================================================================
 
 def test_calcStats():
-    pass
+    b = pbt.BedTool(obinnedstr, from_string = True)
+    b = bed.calc_stats(b)
+    assert b.shape[0] == binstatsdf.shape[0]
+    for i in range(b.shape[0]):
+        assert b.ix[i, :].tolist() == binstatsdf.ix[i, :].tolist()
+        
 
 def test_mkWindows():
     b = bed.mk_windows({1:100}, 50, 25)
@@ -86,6 +100,12 @@ def test_mkWindows():
 def test_getChrSize():
     b = pbt.BedTool(bedstr, from_string = True)
     assert bed.get_chr_size(b.fn) == {"1" : 125}
+
+def test_isOverlapping_True():
+    assert bed.is_overlapping(pbt.BedTool(obinstr, from_string = True))
+
+def test_isOverlapping_False():
+    assert not bed.is_overlapping(pbt.BedTool(nobinstr, from_string = True))
 
 def test_normalize():
     b = pbt.BedTool(bedstr, from_string = True)

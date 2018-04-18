@@ -15,18 +15,6 @@ import pybedtools as pbt
 
 # FUNCTIONS ====================================================================
 
-def is_overlapping(bed):
-    '''Check if a bed contains overlapping features.
-
-    Args:
-        bed (pbt.BedTools): parsed bed file.
-
-    Returns:
-        bool
-    '''
-    isect = bed.intersect(bed, wao = True)
-    return(bed.count() != isect.count())
-
 def calc_stats(bed):
     '''Calculate bin-wise statistics.
 
@@ -57,7 +45,6 @@ def calc_stats(bed):
 
     df = pd.DataFrame(s)
     df.columns = ["chrom", "start", "end", "sum", "mean", "std", "count"]
-    df["cond_nreads"] = sum(df['sum'].values)
 
     return(df)
 
@@ -88,6 +75,18 @@ def get_chr_size(bed, d = None):
 
     return(d)
 
+def is_overlapping(bed):
+    '''Check if a bed contains overlapping features.
+
+    Args:
+        bed (pbt.BedTools): parsed bed file.
+
+    Returns:
+        bool
+    '''
+    isect = bed.intersect(bed, loj = True)
+    return(bed.count() != isect.count())
+
 def mk_windows(chr_sizes, bsize, bstep):
     '''Generate sub-chromosome windows.
 
@@ -109,8 +108,8 @@ def mk_windows(chr_sizes, bsize, bstep):
     return(pbt.BedTool(s, from_string = True))
 
 def normalize(normbed, bed):
-    '''Normalize one bed over another. Discards empty intersections.
-    Consider only the first intersection of any region of bed with normbed.
+    '''Normalize one bed over another. Discards empty intersections. The two bed
+    files are expected to be sorted and contain exactly the same regions.
 
     Args:
         normbed (pbt.BedTool): normbed bed.
@@ -119,25 +118,25 @@ def normalize(normbed, bed):
     Returns:
         pbt.BedTool: normalized bed.
     '''
-    isect = normbed.intersect(bed, wb = True)
-    
-    encountered = set()
-    
+
+    assert_msg = "the two bed files are expected to have the same regions."
+    assert normbed.count() == bed.count(), assert_msg
+
+    # Sort bed files
+    normbed = normbed.sort()
+    bed = bed.sort()
+
+    # Normalize
     s = ""
-    with open(isect.fn, "r+") as IH:
-        for line in IH:
-            i = line.strip().split("\t")
+    for i in range(bed.count()):
+        # Skip if no reads in the normbed
+        b = float(normbed[i]['score'])
+        if b == 0: continue
 
-            s += line
-            if i[3] in encountered: continue
-            encountered.add(i[3])
-
-
-            # if 0 < int(i[4]):
-            #     data = i[5:-1]
-            #     data.append(int(i[9]) / float(i[4]))
-            #     data.extend([i[4], i[9]])
-            #     s += "%s\t%s\t%s\t%s\t%.2f\t%s\t%s\n" % tuple(data)
+        tmp = list(bed[i][:4])
+        a = float(bed[i]['score'])
+        tmp.append("%.2f" % (a / b))
+        s += "\t".join(tmp) + "\n"
 
     return(pbt.BedTool(s, from_string = True))
 
