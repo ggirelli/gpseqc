@@ -123,7 +123,8 @@ def normalize(normbed, bed):
 def to_bins(bins, bed):
     '''Assign regions to bins. Each bin will appear once per each intersecting
     region, with the region value field appended. For each region in bed, only
-    the first intersection is considered.
+    the first intersection is considered. Each region in the output will
+    have the value 'row_XXX' in the name column.
 
     Args:
         bins (pbt.BedTool): bins bed.
@@ -137,6 +138,7 @@ def to_bins(bins, bed):
     isect = bins.intersect(bed, wa = True, wb = True, loj = True)
 
     d = []              # Output container
+    bi = 1              # Region counter
     encountered = set() # Already encountered regions
 
     # Iterate intersection
@@ -150,16 +152,20 @@ def to_bins(bins, bed):
 
             # Prepare output
             data = i[:3]
+            data.append("row_%d" % bi)
             if float(i[7]) < 0: data.append("0")
             else: data.append(i[7])
 
             d.append("\t".join(data))
+            bi += 1
 
     # Format as bed file
     return(pbt.BedTool("\n".join(d), from_string = True))
 
 def to_combined_bins(bins, bed, fcomb = None):
-    '''Groups UMI-uniqued reads from bed file to bins.
+    '''Groups UMI-uniqued reads from bed file to bins. For each region in bed,
+    only the first intersection is considered. Each region in the output will
+    have the value 'row_XXX' in the name column.
 
     Args:
         bins (pbt.BedTool): bins bed.
@@ -170,18 +176,26 @@ def to_combined_bins(bins, bed, fcomb = None):
         pbt.BedTool: grouped bed.
     '''
 
-    if type(None) == type(fcomb):
-        fcomb = lambda x, y: x + y
+    # Default combination style: sum
+    if type(None) == type(fcomb): fcomb = lambda x, y: x + y
 
     # Perform intersection
     isect = bins.intersect(bed, wa = True, wb = True, loj = True)
 
-    # Sum read counts
-    d = {}
-    bi = 1
+    d = {}              # Output container
+    bi = 1              # Region counter
+    encountered = set() # Already encountered regions
+
+    # Iterate intersection
     with open(isect.fn, "r+") as IH:
         for line in IH:
             i = line.strip().split("\t")
+
+            # Skip if not the first intersection
+            if i[6] in encountered: continue
+            encountered.add(i[6])
+
+            # Prepare output
             i[7] = float(i[7])
             ilabel = " ".join(i[:3])
             if not ilabel in d.keys():

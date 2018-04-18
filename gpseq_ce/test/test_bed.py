@@ -34,12 +34,19 @@ binstr  = "1\t0\t50\n"
 binstr += "1\t50\t100\n"
 
 # Expected binning of bedstr with binstr
-binnedstr  = "1\t0\t50\t1\n"
-binnedstr += "1\t0\t50\t2\n"
-binnedstr += "1\t50\t100\t4\n"
-binnedstr += "1\t50\t100\t5\n"
+binnedstr  = "1\t0\t50\trow_1\t1\n"
+binnedstr += "1\t0\t50\trow_2\t2\n"
+binnedstr += "1\t50\t100\trow_3\t4\n"
+binnedstr += "1\t50\t100\trow_4\t5\n"
+
+# Expected combined (sum) binning of bedstr with binstr
+binnedsumstr  = "1\t0\t50\trow_1\t3\n"
+binnedsumstr += "1\t50\t100\trow_2\t9\n"
 
 # FUNCTIONS ====================================================================
+
+def test_calcStats():
+    pass
 
 def test_mkWindows():
     b = bed.mk_windows({1:100}, 50, 25)
@@ -51,6 +58,9 @@ def test_getChrSize():
     b = pbt.BedTool(bedstr, from_string = True)
     assert bed.get_chr_size(b.fn) == {"1" : 125}
 
+def test_normalize():
+    pass
+
 def test_toBins():
     a = pbt.BedTool(binstr, from_string = True)
     b = pbt.BedTool(bedstr, from_string = True)
@@ -60,10 +70,12 @@ def test_toBins():
     assert content == binnedstr
 
 def test_toCombinedBins():
-    pass
-
-def test_calcStats():
-    pass
+    a = pbt.BedTool(binstr, from_string = True)
+    b = pbt.BedTool(bedstr, from_string = True)
+    binned = bed.to_combined_bins(a, b)
+    with open(binned.fn, "r+") as IH:
+        content = "".join(IH.readlines())
+    assert content == binnedsumstr
 
 # END ==========================================================================
 
