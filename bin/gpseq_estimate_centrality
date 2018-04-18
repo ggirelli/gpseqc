@@ -44,14 +44,15 @@
 # DEPENDENCIES =================================================================
 
 import argparse
-from io import StringIO
-import numpy as np
 import os
 import pandas as pd
 import pybedtools as pbt
 import sys
 import tempfile
 from tqdm import tqdm
+
+from ggc.prompt import ask
+from gpseq_ce import bed, centrality, cutsite
 
 # PARAMETERS ===================================================================
 
@@ -295,556 +296,19 @@ def print_settings(args, clear = True):
 	else: print(s)
 	return(s)
 
-def ask(q):
-	"""Ask for confirmation. Aborts otherwise.
-
-	Args:
-		q (string): question.
-	"""
-	answer = ''
-	while not answer.lower() in ['y', 'n']:
-		print("%s %s" % (q, "(y/n)"))
-		answer = sys.stdin.readline().strip()
-
-		if 'n' == answer.lower():
-			sys.exit("Aborted.\n")
-		elif not 'y' == answer.lower():
-			print("Please, answer 'y' or 'n'.\n")
-	print("")
-
-def chr2chrid(c):
-	'''Convert chromosome string to chromosome ID.
-	Returns nan for non-standard chromosomes (i.e., not 1-22, X, Y).
-
-	Args:
-		c (str): chromosome string.
-	'''
-	c = c[3:]
-	if "X" == c: c = '23'
-	if "Y" == c: c = '24'
-	if c.isalpha(): return(np.nan)
-	else: return(int(c))
-
-def bed_read_or_check(bed):
-	'''Checks if a bed file was already parsed, and parses it otherwise.
-
-	Args:
-		bed (str): path to bed file, needs to be fully stored in memory.
-		bed (pbt.BedTool): parsed bed file content.
-
-	Returns:
-		pbt.BedTools: parsed bed file content.
-	'''
-	if type("") == type(bed):
-		assert os.path.isfile(bed), "missing file: %s" % bed
-		bed = pbt.BedTool(bed)
-
-	assert_msg = "either path or BedTool() expected."
-	assert type(pbt.BedTool()) == type(bed), assert_msg
-
-	return(bed)
-
-def sort_bed_by(bed, fkey = None):
-	'''Sort a bed file. By default, sorts by chromosome ID.
-	It is possible to provide a custom key function for sorting.
-
-	Args:
-		bed (str): path to bed file, needs to be fully stored in memory.
-		bed (pbt.BedTool): parsed bed file content.
-		fkey (fun): function to extract sorting keys.
-
-	Returns:
-		list: list of intervals sorted by key.
-	'''
-	bed = bed_read_or_check(bed)
-	if type(None) == type(fkey): fkey = lambda x: chr2chrid(x)
-	return(sorted(bed, key = fkey))
-
-def get_chr_size(bed, d = None):
-	'''Extract chromosome size from a bed file.
-
-	Args:
-		bed (str): path to bed file, needs to be fully stored in memory.
-
-	Returns:
-		dict: (chrom, size) item couples.
-	'''
-	
-	if type("") == type(bed):
-		assert os.path.isfile(bed), "missing file: %s" % bed
-
-	if type(None) == type(d): d = {}
-
-	with open(bed, "r+") as IH:
-		for line in IH:
-			if not line.startswith("track"):
-				i = line.strip().split("\t")
-				if not i[0] in d.keys():
-					d[i[0]] = int(i[2])
-				else:
-					if int(i[2]) >= d[i[0]]:
-						d[i[0]] = int(i[2])
-
-	return(d)
-
-def mk_bed_windows(chr_sizes, bsize, bstep):
-	'''Generate sub-chromosome windows.
-
-	Args:
-		chr_sizes (dict): (chrom, size) item tuples.
-		bsize (int): bin size.
-		bstep (int): bin step.
-
-	Returns:
-		pbt.BedTools: bin bed.
-	'''
-
-	assert bsize >= bstep, "bin size must be greater than or equal to bin step."
-
-	s = ""
-	for (c, e) in chr_sizes.items():
-		for start in range(0, e, bstep):
-			s += "%s\t%d\t%d\t\n" % (c, start, start + bsize)
-	return(pbt.BedTool(s, from_string = True))
-
-def bed_to_bins(bins, bed):
-	'''Assign regions to bins. Each bin will appear once per each intersecting
-	region, with the region value field appended.
-
-	Args:
-		bins (pbt.BedTool): bins bed.
-		bed (pbt.BedTool): parsed bed.
-
-	Returns:
-		pbt.BedTool: grouped bed.
-	'''
-
-	# Perform intersection
-	isect = bins.intersect(bed, wa = True, wb = True, loj = True)
-
-	# Sum read counts
-	d = []
-	bi = 1
-	with open(isect.fn, "r+") as IH:
-		for line in IH:
-			i = line.strip().split("\t")
-			data = i[:3]
-			if float(i[7]) < 0: data.append("0")
-			else: data.append(i[7])
-			d.append("\t".join(data))
-
-	# Format as bed file
-	return(pbt.BedTool("\n".join(d), from_string = True))
-
-def bed_to_combined_bins(bins, bed, fcomb = None):
-	'''Groups UMI-uniqued reads from bed file to bins.
-
-	Args:
-		bins (pbt.BedTool): bins bed.
-		bed (pbt.BedTool): parsed bed.
-		fcomb (fun): lambda(x,y) for combining.
-
-	Returns:
-		pbt.BedTool: grouped bed.
-	'''
-
-	if type(None) == type(fcomb):
-		fcomb = lambda x, y: x + y
-
-	# Perform intersection
-	isect = bins.intersect(bed, wa = True, wb = True, loj = True)
-
-	# Sum read counts
-	d = {}
-	bi = 1
-	with open(isect.fn, "r+") as IH:
-		for line in IH:
-			i = line.strip().split("\t")
-			i[7] = float(i[7])
-			ilabel = " ".join(i[:3])
-			if not ilabel in d.keys():
-				if i[7] < 0: i[7] = 0
-				d[ilabel] = [i[0], int(i[1]), int(i[2]),
-					"row_%d" % bi, i[7]]
-				bi += 1
-			else:
-				d[ilabel][4] = fcomb(d[ilabel][4], i[7])
-
-	# Format as bed file
-	s = "\n".join(["%s\t%d\t%d\t%s\t%d" % tuple(v) for v in d.values()])
-	return(pbt.BedTool(s, from_string = True))
-
-def norm_bed(normbed, bed):
-	'''Normalize one bed over another.
-	Discards empty intersections.
-
-	Args:
-		normbed (pbt.BedTool): normbed bed.
-		bed (pbt.BedTool): parsed bed.
-
-	Returns:
-		pbt.BedTool: normalized bed.
-	'''
-	isect = normbed.intersect(bed, wb = True)
-	
-	s = ""
-	with open(isect.fn, "r+") as IH:
-		for line in IH:
-			i = line.strip().split("\t")
-			if 0 < int(i[4]):
-				data = i[5:-1]
-				data.append(int(i[9]) / float(i[4]))
-				s += "%s\t%s\t%s\t%s\t%.2f\n" % tuple(data)
-
-	return(pbt.BedTool(s, from_string = True))
-
-def mk_cutsite_domain(bedfiles, mode, csbed = None, groups = None):
-	'''Build bed file with list of cutsites.
-	The cutsite domain can be specified as follows:
-	1 - all genomic cutsites (universe)
-	2 - all cutsites restricted in the experiment (union)
-	3 - all cutsites restricted in a condition (separate)
-	4 - all cutsites restricted in all conditions (intersection)
-	Default is 3 (separate). Also, note that if option 1 is selected, an
-	additional argument -l is required.
-
-	Args:
-		bedfiles (list): list of bed files.
-		mode (int): custite domain mode (see description).
-		csbed (pbt.BedTools): parsed bed with all cutsite in the reference.
-		groups (pbt.BedTools): parsed bed with groups, if grouping.
-	'''
-
-	assert mode in range(1, 5), "allowed modes: %s" % str(list(range(1, 5)))
-
-	# Identify common cutsites/groups lists for domain preparation -------------
-
-	csbed = None
-	if 1 == mode:	# Universe
-		if type(None) == type(groups):
-			# Use cutsite list
-			assert_msg = "cutsite bed required for mode 1."
-			assert type("") == type(csbed[0]), assert_msg
-			assert os.path.isfile(csbed[0]), "file not found: %s" % csbed[0]
-			csbed = pbt.BedTool(csbed[0])
-		else:
-			# Use groups as cutsites
-			assert_msg = "parsed bed tool required, got: %s" % type(groups)
-			assert type(pbt.BedTool()) == type(groups), assert_msg
-			csbed = groups
-	elif 2 == mode:	# Union
-		# Identify cutsites from all conditions
-		print("> Performing union over beds...")
-		csbed = bedfiles[0].cat(*bedfiles[1:], force_truncate = True)
-	elif 3 == mode:	# Separated
-		pass
-	elif 4 == mode:	# Intersection
-		print("> Performing intersection over beds...")
-		csbed = bedfiles[0]
-		for i in range(len(bedfiles[1:])):
-			csbed += bedfiles[i]
-
-	# Group domain if needed and save counts -----------------------------------
-
-	if type(None) != type(csbed):
-		if type(None) != type(groups):
-			# Group cutsites
-			csbed = bed_to_combined_bins(groups, csbed)
-
-	return(csbed)
-
-def apply_domain(bedfiles, csbed, groups, obpaths):
-	''''''
-
-	if type(None) == type(csbed):
-		print("Removing empty sites...")
-		for i in range(len(bedfiles)):
-			# Remove zero-loci or empty groups
-			s = ""
-			with open(bedfiles[i].fn, "r+") as IH:
-				for line in IH:
-					if line.startswith("track"): continue
-					interval = line.strip().split("\t")
-					if float(interval[4]) != 0: s += line
-			bedfiles[i] = pbt.BedTool(s, from_string = True)
-	else:
-		print("Applying cutsite domain... [TODO]")
-
-	# Save
-	if args.debug_mode:
-		for i in range(len(bedfiles)):
-			bedfiles[i].saveas(os.path.join(args.output[0],
-				"%scsd.%s.%s%s.tsv" % (args.prefix[0], descr,
-					os.path.basename(obpaths[i]), args.suffix[0])))
-
-	return(bedfiles)
-
-def bed_calc_stats(bed):
-	'''Calculate bin-wise statistics.
-
-	Args:
-		bed (pbt.BedTool): parsed bed file.
-
-	Returns:
-		pd.DataFrame: data frame with bin statistics.
-	'''
-	
-	data = {}
-	with open(bed.fn, "r+") as IH:
-		for line in IH:
-			i = line.strip().split("\t")
-			ilabel = "\t".join(i[:3])
-			if ilabel in data.keys():
-				data[ilabel].append(float(i[3]))
-			else:
-				data[ilabel] = [float(i[3])]
-
-	s = []
-	for (k, v) in data.items():
-		tmp = k.split("\t")
-		tmp[1] = int(tmp[1])
-		tmp[2] = int(tmp[2])
-		tmp.extend([sum(v), np.mean(v), np.std(v), len(v)])
-		s.append(tmp)
-
-	df = pd.DataFrame(s)
-	df.columns = ["chrom", "start", "end", "sum", "mean", "std", "count"]
-
-	return(df)
-
-def calc_p(st, ci):
-	'''Calculate restriction probability.
-
-	Args:
-		st (pd.DataFrame): bin-based data frame (over conditions).
-		ci (int): condition index.
-
-	Returns:
-		float
-	'''
-	assert ci < st.shape[0], "requested condition (index) not found."
-	row = st.iloc[ci, :]
-	return(row['sum'] / (row['cond_nreads'] * row['count']))
-
-def calc_pc(st, ci):
-	'''Calculate cumulative restriction probability.
-
-	Args:
-		st (pd.DataFrame): bin-based data frame (over conditions).
-		ci (int): condition index.
-
-	Returns:
-		float
-	'''
-	assert ci < st.shape[0], "requested condition (index) not found."
-	if ci == 0: return(calc_p(st, 0))
-	else: return(calc_p(st, ci) + calc_pc(st, ci - 1))
-
-def calc_pr(st, ci):
-	'''Calculate probability of cumulative restriction.
-
-	Args:
-		st (pd.DataFrame): bin-based data frame (over conditions).
-		ci (int): condition index.
-
-	Returns:
-		float
-	'''
-	assert ci < st.shape[0], "requested condition (index) not found."
-	if ci == 0: return(calc_p(st, 0))
-	else:
-		p = st.ix[:ci, "sum"].sum()
-		p /= (st.ix[:ci, "cond_nreads"].sum() * st.ix[0, 'count'])
-		return(p)
-
-def calc_var(st, ci):
-	'''Calculate variance.
-
-	Args:
-		st (pd.DataFrame): bin-based data frame (over conditions).
-		ci (int): condition index.
-
-	Returns:
-		np.float64
-	'''
-	assert ci < st.shape[0], "requested condition (index) not found."
-	return(np.power(st.ix[ci, "std"], 2))
-
-def calc_ff(st, ci):
-	'''Calculate Fano Factor.
-
-	Args:
-		st (pd.DataFrame): bin-based data frame (over conditions).
-		ci (int): condition index.
-
-	Returns:
-		np.float64
-	'''
-	assert ci < st.shape[0], "requested condition (index) not found."
-	return(np.power(st.ix[ci, "std"], 2) / st.ix[ci, "mean"])
-
-def calc_cv(st, ci):
-	'''Calculate coefficient of variation
-
-	Args:
-		st (pd.DataFrame): bin-based data frame (over conditions).
-		ci (int): condition index.
-
-	Returns:
-		np.float64
-	'''
-	assert ci < st.shape[0], "requested condition (index) not found."
-	return(st.ix[ci, "std"] / st.ix[ci, "mean"])
-
-def est_2p(st, f1, f2):
-	'''Estimates centrality by combining conditions with two-points fashion.
-
-	Args:
-		st (pd.DataFrame): bin-based data frame (over conditions).
-		f1 (fun): function for calculating condition-wise metrics.
-		f2 (fun): function for putting conditions together.
-
-	Returns:
-		Estimated centrality.
-	'''
-	a = f1(st, 0)
-	b = f1(st, st.shape[0] - 1)
-	return(f2(b, a))
-
-def est_f(st, f1, f2):
-	'''Estimates centrality by combining conditions with fixed fashion.
-
-	Args:
-		st (pd.DataFrame): bin-based data frame (over conditions).
-		f1 (fun): function for calculating condition-wise metrics.
-		f2 (fun): function for putting conditions together.
-
-	Returns:
-		Estimated centrality.
-	'''
-	out = 0
-	a = f1(st, 0)
-	for i in range(1, st.shape[0]):
-		b = f1(st, i)
-		out += f2(b, a)
-	return(out)
-
-def est_g(st, f1, f2):
-	'''Estimates centrality by combining conditions with global fashion.
-
-	Args:
-		st (pd.DataFrame): bin-based data frame (over conditions).
-		f1 (fun): function for calculating condition-wise metrics.
-		f2 (fun): function for putting conditions together.
-
-	Returns:
-		Estimated centrality.
-	'''
-	out = 0
-	a = f1(st, 0)
-	for i in range(1, st.shape[0]):
-		b = f1(st, i)
-		out += f2(b, a)
-		a = b
-	return(out)
-
-def bin_centrality(df, mlist, progress = True):
-	'''Estimate centrality for each bin in a condition combined data frame.
-
-	Args:
-		df (pd.DataFrame): multi-condition data frame.
-		mlist (list): list of metrics to calculate.
-		progress (bool): show progress bar.
-	'''
-
-	# Build generator
-	indexes = list(set(df.index))
-	igen = (i for i in indexes)
-	if progress: igen = tqdm(igen, total = len(indexes))
-
-	# Iterate over bins
-	odf = []
-	for i in igen:
-		st = df.loc[i, :]
-		st.index = range(st.shape[0])
-
-		# Prepare output
-		orow = st.ix[0, ['chrom', 'start', 'end']]
-
-		# Calculate requested metrics
-		for m in mlist:
-			# Probability
-			if m == "prob_2p": # two-points
-				orow[m] = est_2p(st, calc_p, lambda x, y: x / y)
-			elif m == "prob_f": # fixed
-				orow[m] = est_f(st, calc_p, lambda x, y: x / y)
-			elif m == "prob_g": # global
-				orow[m] = est_g(st, calc_p, lambda x, y: x / y)
-
-			# Cumulative ratio
-			elif m == "cor_2p": # two-points
-				orow[m] = est_2p(st, calc_pc, lambda x, y: x / y)
-			elif m == "cor_f": # fixed
-				orow[m] = est_f(st, calc_pc, lambda x, y: x / y)
-			elif m == "cor_g": # global
-				orow[m] = est_g(st, calc_pc, lambda x, y: x / y)
-
-			# Ratio of cumulative
-			elif m == "roc_2p": # two-points
-				orow[m] = est_2p(st, calc_pr, lambda x, y: x / y)
-			elif m == "roc_f": # fixed
-				orow[m] = est_f(st, calc_pr, lambda x, y: x / y)
-			elif m == "roc_g": # global
-				orow[m] = est_g(st, calc_pr, lambda x, y: x / y)
-
-			# Variance
-			elif m == "var_2p": # two-points
-				orow[m] = est_2p(st, calc_var, lambda x, y: np.log(x / y))
-			elif m == "var_f": # fixed
-				orow[m] = est_f(st, calc_var, lambda x, y: np.log(x / y))
-
-			# Fano factor
-			elif m == "ff_2p": # two-points
-				orow[m] = est_2p(st, calc_ff, lambda x, y: y - x)
-			elif m == "ff_f": # fixed
-				orow[m] = est_f(st, calc_ff, lambda x, y: y - x)
-
-			# Coefficient of variation
-			elif m == "cv_2p": # two-points
-				orow[m] = est_2p(st, calc_cv, lambda x, y: y - x)
-			elif m == "cv_f": # fixed
-				orow[m] = est_f(st, calc_cv, lambda x, y: y - x)
-
-		odf.append(orow)
-
-	# Assemble output
-	odf = pd.concat(odf, axis = 1).transpose()
-	columns = ['chrom', 'start', 'end']
-	columns.extend(mlist)
-	odf.columns = columns[:odf.shape[1]]
-	odf.index = range(odf.shape[0])
-
-	return(odf)
-
-def rank_centrality(cdf, mlist, progress = True, chrWide = False):
-	''''''
-	if chrWide:
-		labels = [cdf["chrom"].values[i] for i in cdf.index]
-	else:
-		labels = ["%s:%s-%s" % tuple(cdf.ix[i, :].tolist()[:3])
-			for i in cdf.index]
-	
-	gen = (m for m in mlist if m in cdf.columns)
-	if progress: gen = tqdm(gen, total = len(mlist))
-
-	odf = []
-	for m in gen:
-		odf.append([labels[i] for i in np.argsort(cdf[m].values)])
-	
-	odf = pd.DataFrame(odf).transpose()
-	odf.columns = [m for m in mlist if m in cdf.columns]
-
-	return(odf)
+def build_opath(fname, args):
+	fname = os.path.splitext(os.path.basename(fname))
+	fname = "".join([args.prefix[0], fname[0], args.suffix[0], fname[1]])
+	fname = os.path.join(args.output[0], fname)
+	return(fname)
+
+def bed_saveas(bed, fname, args):
+	fname = build_opath(fname, args)
+	bed.saveas(fname)
+
+def df_saveas(df, fname, args):
+	fname = build_opath(fname, args)
+	df.to_csv(fname, header = True, index = False, sep = "\t")
 
 # RUN ==========================================================================
 
@@ -874,7 +338,7 @@ print("Identifying chromosomes...")
 
 chr_sizes = {}
 for b in tqdm(args.bedfile):
-	chr_sizes = get_chr_size(b, chr_sizes)
+	chr_sizes = bed.get_chr_size(b, chr_sizes)
 
 # (2) Generate bins ------------------------------------------------------------
 print("Generating bins...")
@@ -888,10 +352,9 @@ elif 0 == args.bin_size[0] and type(None) == type(args.bin_bed[0]):
 	bins = pbt.BedTool(s, from_string = True)
 else:
 	# Sub-chromosome bins
-	bins = mk_bed_windows(chr_sizes, args.bin_size[0], args.bin_step[0])
+	bins = bed.mk_windows(chr_sizes, args.bin_size[0], args.bin_step[0])
 
-if args.debug_mode: bins.saveas(os.path.join(args.output[0],
-	"%sbins.%s%s.bed" % (args.prefix[0], descr, args.suffix[0])))
+if args.debug_mode: bed_saveas(bins, "bins.%s.bed" % descr, args)
 
 # (3) Group cutsites (intersect) -----------------------------------------------
 
@@ -900,16 +363,14 @@ if 0 != args.group_size[0]:
 	print("Grouping reads...")
 
 	# Generate groups bed
-	groups = mk_bed_windows(chr_sizes, args.group_size[0], args.group_size[0])
-	if args.debug_mode: groups.saveas(os.path.join(args.output[0],
-		"%sgroups.%s%s.tsv" % (args.prefix[0], descr, args.suffix[0])))
+	groups = bed.mk_windows(chr_sizes, args.group_size[0], args.group_size[0])
+	if args.debug_mode: bed_saveas(groups, "groups.%s.bed" % descr, args)
 
 	# Intersect
 	for i in tqdm(range(len(bedfiles))):
-		bedfiles[i] = bed_to_combined_bins(groups, bedfiles[i])
-		if args.debug_mode: bedfiles[i].saveas(os.path.join(args.output[0],
-			"%sgrouped.%s.%s%s.tsv" % (args.prefix[0], descr,
-				os.path.basename(args.bedfile[i]), args.suffix[0])))
+		bedfiles[i] = bed.to_combined_bins(groups, bedfiles[i])
+		if args.debug_mode: bed_saveas(bedfiles[i], "grouped.%s.%s.tsv" % (
+			descr, os.path.basename(args.bedfile[i])), args)
 
 # (4) Normalize over last condition --------------------------------------------
 
@@ -922,39 +383,42 @@ if args.normalize:
 
 	# Normalize
 	for i in tqdm(range(len(bedfiles))):
-		bedfiles[i] = norm_bed(normbed, bedfiles[i])
-		if args.debug_mode: bedfiles[i].saveas(os.path.join(args.output[0],
-			"%snormlast.%s.%s%s.tsv" % (args.prefix[0], descr,
-				os.path.basename(args.bedfile[i]), args.suffix[0])))
+		bedfiles[i] = bed.normalize(normbed, bedfiles[i])
+		if args.debug_mode: bed_saveas(bedfiles[i], "normlast.%s.%s.tsv" % (
+			descr, os.path.basename(args.bedfile[i])), args)
 
 # (5) Prepare domain -----------------------------------------------------------
 print("Preparing cutsites...")
 
-csbed = mk_cutsite_domain(bedfiles, args.cutsite_mode[0],
+csbed = cutsite.mk_domain(bedfiles, args.cutsite_mode[0],
 	csbed = args.cutsite_bed, groups = groups)
 
 # Save if debugging
 if not type(None) == type(csbed) and args.debug_mode:
-	csbed.saves(os.path.join(args.output[0],
-		"%scutsites.%s%s.bed" % (args.prefix[0], descr, args.suffix[0])))
+	bed_saveas(csbed, "cutsites.%s.bed" % descr, args)
 
-bedfiles = apply_domain(bedfiles, csbed, groups, args.bedfile)
+bedfiles = cutsite.apply_domain(bedfiles, csbed, groups)
+
+# Save if debugging
+if args.debug_mode:
+    for i in range(len(bedfiles)):
+    	bed_saveas(bedfiles[i], "csd.%s.%s.tsv" % (descr,
+                os.path.basename(args.bedfile[i])), args)
 
 # (6) Assign reads to bins (intersect) -----------------------------------------
 print("Assigning to bins...")
 
 for i in tqdm(range(len(bedfiles))):
-	bedfiles[i] = bed_to_bins(bins, bedfiles[i])
+	bedfiles[i] = bed.to_bins(bins, bedfiles[i])
 
 	# Save if debugging
-	if args.debug_mode: bedfiles[i].saveas(os.path.join(args.output[0],
-		"%sintersected.%s.%s%s.tsv" % (args.prefix[0], descr,
-			os.path.basename(args.bedfile[i]), args.suffix[0])))
+	if args.debug_mode: bed_saveas(bedfiles[i], "intersected.%s.%s.tsv" % (
+		descr, os.path.basename(args.bedfile[i])), args)
 
 # (7) Calculate bin statistics -------------------------------------------------
 print("Calculating bin statistics...")
 
-bstats = [bed_calc_stats(b) for b in tqdm(bedfiles)]
+bstats = [bed.calc_stats(b) for b in tqdm(bedfiles)]
 
 # Add condition columns
 for i in range(len(bstats)):
@@ -962,43 +426,29 @@ for i in range(len(bstats)):
 	bstats[i]['cond'] = i + 1
 
 	# Save if debugging
-	if args.debug_mode: bstats[i].to_csv(os.path.join(args.output[0],
-			"%sbin_stats.%s.%s%s.tsv" % (args.prefix[0], descr,
-				os.path.basename(args.bedfile[i]), args.suffix[0])),
-			header = True, index = False, sep = "\t")
+	if args.debug_mode: df_saveas(bstats[i], "bin_stats.%s.%s.tsv" % (
+		descr, os.path.basename(args.bedfile[i])), args)
 
 # (8) Combine condition into a single table ------------------------------------
 print("Combining information...")
 
 # Concatenate
 comb = pd.concat(bstats).sort_values(["chrom", "start", "end"])
-
-# Write output
-comb.to_csv(os.path.join(args.output[0], "%scombined.%s%s.tsv" % (
-	args.prefix[0], descr, args.suffix[0])),
-	header = True, index = False, sep = "\t")
+df_saveas(comb, "combined.%s.tsv" % descr, args)
 
 # (9) Estimate centrality ------------------------------------------------------
 print("Estimating centrality...")
 
 # Estimate centrality of each bin
-est = bin_centrality(comb, toCalc)
-
-# Write output
-est.to_csv(os.path.join(args.output[0], "%sestimated.%s%s.tsv" % (
-	args.prefix[0], descr, args.suffix[0])),
-	header = True, index = False, sep = "\t")
+est = centrality.bin_estimate(comb, toCalc)
+df_saveas(est, "estimated.%s.tsv" % descr, args)
 
 # (10) Rank bins ---------------------------------------------------------------
 print("Ranking bins...")
 
 # Rank bins
-rank = rank_centrality(est, toCalc, chrWide = args.bin_size[0] == 0)
-
-# Write output
-rank.to_csv(os.path.join(args.output[0], "%sranked.%s%s.tsv" % (
-	args.prefix[0], descr, args.suffix[0])),
-	header = True, index = False, sep = "\t")
+rank = centrality.rank(est, toCalc, chrWide = args.bin_size[0] == 0)
+df_saveas(rank, "ranked.%s.tsv" % descr, args)
 
 # End --------------------------------------------------------------------------
 

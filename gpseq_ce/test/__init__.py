@@ -3,12 +3,10 @@
 '''
 @author: Gabriele Girelli
 @email: gigi.ga90@gmail.com
-@description: GPSeq Centrality Estimation package.
+@description: GPSeq Centrality Estimation tests.
 '''
 
 # DEPENDENCIES =================================================================
-
-from gpseq_ce import bed, centrality, cutsite
 
 # END ==========================================================================
 
