@@ -242,8 +242,10 @@ assert os.path.isdir(args.T[0]), "temporary folder not found: %s" % args.T[0]
 pbt.set_tempdir(args.T[0])
 
 # Adjust prefix/suffix if needed
-if '.' != args.prefix[0][-1]: args.prefix[0] += '.'
-if '.' != args.suffix[0][0]: args.suffix[0] = '.' + args.suffix[0]
+if 0 != len(args.prefix[0]):
+	if '.' != args.prefix[0][-1]: args.prefix[0] += '.'
+if 0 != len(args.suffix[0]):
+	if '.' != args.suffix[0][0]: args.suffix[0] = '.' + args.suffix[0]
 
 # FUNCTION =====================================================================
 
@@ -273,8 +275,8 @@ def print_settings(args, clear = True):
 	if 1 == args.cutsite_mode[0]:
 		s += "    Cutsite : %s\n" % args.cutsite_bed[0]
 
-	if 0 != len(args.prefix[0]): s += " Prefix : %s\n" % args.prefix[0]
-	if 0 != len(args.suffix[0]): s += " Suffix : %s\n" % args.suffix[0]
+	if 0 != len(args.prefix[0]): s += "     Prefix : '%s'\n" % args.prefix[0]
+	if 0 != len(args.suffix[0]): s += "     Suffix : '%s'\n" % args.suffix[0]
 
 	if args.normalize: s += "\n Normalizing over last condition.\n"
 	if args.debug_mode: s += "\n Debugging mode ON.\n"
@@ -463,7 +465,7 @@ def bed_to_combined_bins(bins, bed, fcomb = None):
 			if not ilabel in d.keys():
 				if i[7] < 0: i[7] = 0
 				d[ilabel] = [i[0], int(i[1]), int(i[2]),
-					"bin_%d" % bi, i[7]]
+					"row_%d" % bi, i[7]]
 				bi += 1
 			else:
 				d[ilabel][4] = fcomb(d[ilabel][4], i[7])
@@ -551,14 +553,31 @@ def mk_cutsite_domain(bedfiles, mode, csbed = None, groups = None):
 
 	return(csbed)
 
-def apply_domain(bedfiles, csbed, groups):
+def apply_domain(bedfiles, csbed, groups, obpaths):
 	''''''
 
-	for i in tqdm(range(len(bedfiles))):
-		if type(None) == type(csbed):
-			pass
-		else:
-			pass
+	if type(None) == type(csbed):
+		print("Removing empty sites...")
+		for i in range(len(bedfiles)):
+			# Remove zero-loci or empty groups
+			s = ""
+			with open(bedfiles[i].fn, "r+") as IH:
+				for line in IH:
+					if line.startswith("track"): continue
+					interval = line.strip().split("\t")
+					if float(interval[4]) != 0: s += line
+			bedfiles[i] = pbt.BedTool(s, from_string = True)
+	else:
+		print("Applying cutsite domain... [TODO]")
+
+	# Save
+	if args.debug_mode:
+		for i in range(len(bedfiles)):
+			bedfiles[i].saveas(os.path.join(args.output[0],
+				"%scsd.%s.%s%s.tsv" % (args.prefix[0], descr,
+					os.path.basename(obpaths[i]), args.suffix[0])))
+
+	return(bedfiles)
 
 def bed_calc_stats(bed):
 	'''Calculate bin-wise statistics.
@@ -579,13 +598,16 @@ def bed_calc_stats(bed):
 				data[ilabel].append(float(i[3]))
 			else:
 				data[ilabel] = [float(i[3])]
-	
-	s = ""
-	for (k, v) in data.items():
-		s += "%s\t%.2f\t%.2f\t%.2f\t%d\n" % (
-			k, sum(v), np.mean(v), np.std(v), len(v))
 
-	df = pd.read_csv(StringIO(s), sep = "\t")
+	s = []
+	for (k, v) in data.items():
+		tmp = k.split("\t")
+		tmp[1] = int(tmp[1])
+		tmp[2] = int(tmp[2])
+		tmp.extend([sum(v), np.mean(v), np.std(v), len(v)])
+		s.append(tmp)
+
+	df = pd.DataFrame(s)
 	df.columns = ["chrom", "start", "end", "sum", "mean", "std", "count"]
 
 	return(df)
@@ -879,6 +901,8 @@ if 0 != args.group_size[0]:
 
 	# Generate groups bed
 	groups = mk_bed_windows(chr_sizes, args.group_size[0], args.group_size[0])
+	if args.debug_mode: groups.saveas(os.path.join(args.output[0],
+		"%sgroups.%s%s.tsv" % (args.prefix[0], descr, args.suffix[0])))
 
 	# Intersect
 	for i in tqdm(range(len(bedfiles))):
@@ -908,15 +932,21 @@ print("Preparing cutsites...")
 
 csbed = mk_cutsite_domain(bedfiles, args.cutsite_mode[0],
 	csbed = args.cutsite_bed, groups = groups)
+
+# Save if debugging
 if not type(None) == type(csbed) and args.debug_mode:
 	csbed.saves(os.path.join(args.output[0],
-		"%scutsite.%s%s.bed" % (args.prefix[0], descr, args.suffix[0])))
+		"%scutsites.%s%s.bed" % (args.prefix[0], descr, args.suffix[0])))
+
+bedfiles = apply_domain(bedfiles, csbed, groups, args.bedfile)
 
 # (6) Assign reads to bins (intersect) -----------------------------------------
 print("Assigning to bins...")
 
 for i in tqdm(range(len(bedfiles))):
 	bedfiles[i] = bed_to_bins(bins, bedfiles[i])
+
+	# Save if debugging
 	if args.debug_mode: bedfiles[i].saveas(os.path.join(args.output[0],
 		"%sintersected.%s.%s%s.tsv" % (args.prefix[0], descr,
 			os.path.basename(args.bedfile[i]), args.suffix[0])))
@@ -926,13 +956,19 @@ print("Calculating bin statistics...")
 
 bstats = [bed_calc_stats(b) for b in tqdm(bedfiles)]
 
-# (8) Combine condition into a single table ------------------------------------
-print("Combining information...")
-
 # Add condition columns
 for i in range(len(bstats)):
-	bstats[i]["cond_nreads"] = sum(bstats[i]['count'].values)
+	bstats[i]["cond_nreads"] = sum(bstats[i]['sum'].values)
 	bstats[i]['cond'] = i + 1
+
+	# Save if debugging
+	if args.debug_mode: bstats[i].to_csv(os.path.join(args.output[0],
+			"%sbin_stats.%s.%s%s.tsv" % (args.prefix[0], descr,
+				os.path.basename(args.bedfile[i]), args.suffix[0])),
+			header = True, index = False, sep = "\t")
+
+# (8) Combine condition into a single table ------------------------------------
+print("Combining information...")
 
 # Concatenate
 comb = pd.concat(bstats).sort_values(["chrom", "start", "end"])
