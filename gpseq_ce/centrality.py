@@ -257,12 +257,19 @@ def rank(cdf, mlist, progress = True, chrWide = False):
 
     # Rank and label regions
     odf = []
-    for m in gen:
-        odf.append([labels[i] for i in np.argsort(cdf[m].values)])
+    [odf.append([labels[i] for i in np.argsort(cdf[m].values)]) for m in gen]
     
     # Assemble ranks into a single DataFrame
     odf = pd.DataFrame(odf).transpose()
     odf.columns = [m for m in mlist if m in cdf.columns]
+
+    # Remove nan/inf from ranking
+    for m in mlist:
+        if m in odf.columns:
+            nanloc = np.isnan(cdf[m].values[np.argsort(cdf[m].values)])
+            odf.ix[nanloc, m] = np.nan
+            infloc = np.isinf(cdf[m].values[np.argsort(cdf[m].values)])
+            odf.ix[infloc, m] = np.nan
 
     return(odf)
 
