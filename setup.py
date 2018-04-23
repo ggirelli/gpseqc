@@ -20,7 +20,7 @@ with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
 	long_description = f.read()
 
 setup(name='gpseqc',
-	version='0.0.1',
+	version='2.0.0',
 	description='GPSeq-based centrality estimation.',
 	long_description=long_description,
 	long_description_content_type='text/markdown',
@@ -39,7 +39,7 @@ setup(name='gpseqc',
 	packages=find_packages(),
 	install_requires=['ggc>=0.0.2.post1', 'joblib>=0.11', 'numpy>=1.14.2',
 		'pandas>=0.22.0', 'pybedtools>=0.7.10'],
-	scripts=['bin/gpseqc_estimate'],
+	scripts=['bin/gpseqc_estimate', 'bin/gpseqc_compare'],
 	test_suite="nose.collector",
 	tests_require=["nose"],
 )

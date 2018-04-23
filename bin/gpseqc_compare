@@ -43,7 +43,22 @@
 
 # DEPENDENCIES =================================================================
 
+import argparse
+import sys
+
 # PARAMETERS ===================================================================
+
+parser = argparse.ArgumentParser(description = """
+Centrality ranking comparison.
+""", formatter_class = argparse.RawDescriptionHelpFormatter)
+
+# Version flag
+version = "2.0.0dev"
+parser.add_argument('--version', action = 'version',
+	version = '%s v%s' % (sys.argv[0], version,))
+
+# Parse arguments
+args = parser.parse_args()
 
 # Check input ------------------------------------------------------------------
 
