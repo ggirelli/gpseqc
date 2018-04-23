@@ -209,15 +209,15 @@ def bin_estimate(df, mlist, progress = True):
 
             # Fano factor
             elif m == "ff_2p": # two-points
-                orow[m] = est_2p(st, calc_ff, lambda x, y: y - x)
+                orow[m] = est_2p(st, calc_ff, lambda x, y: x - y)
             elif m == "ff_f": # fixed
-                orow[m] = est_f(st, calc_ff, lambda x, y: y - x)
+                orow[m] = est_f(st, calc_ff, lambda x, y: x - y)
 
             # Coefficient of variation
             elif m == "cv_2p": # two-points
-                orow[m] = est_2p(st, calc_cv, lambda x, y: y - x)
+                orow[m] = est_2p(st, calc_cv, lambda x, y: x - y)
             elif m == "cv_f": # fixed
-                orow[m] = est_f(st, calc_cv, lambda x, y: y - x)
+                orow[m] = est_f(st, calc_cv, lambda x, y: x - y)
 
         odf.append(orow)
 
