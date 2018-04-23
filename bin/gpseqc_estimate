@@ -443,7 +443,7 @@ bedfiles = cutsite_domain.apply(bedfiles, csbed)
 if args.debug_mode:
     for i in range(len(bedfiles)):
     	bed_saveas(bedfiles[i], "csd.%s.%s.tsv" % (descr,
-                os.path.basename(args.bedfile[i])), args)
+            os.path.basename(args.bedfile[i])), args)
 
 # (6) Assign reads to bins (intersect) -----------------------------------------
 print("Assigning to bins...")
@@ -459,14 +459,18 @@ if 1 == args.threads:
 	for i in tqdm(range(len(bedfiles))):
 		do_assign(i, bedfiles, bins, descr, args)
 else:
-	bedfiles =  Parallel(n_jobs = args.threads, verbose = 11)(
+	bedfiles = Parallel(n_jobs = args.threads, verbose = 11)(
 		delayed(do_assign)(i, bedfiles, bins, descr, args)
 		for i in range(len(bedfiles)))
 
 # (7) Calculate bin statistics -------------------------------------------------
 print("Calculating bin statistics...")
 
-bstats = [bed.calc_stats(b) for b in tqdm(bedfiles)]
+if 1 == args.threads:
+	bstats = [bed.calc_stats(b) for b in tqdm(bedfiles)]
+else:
+	bstats = Parallel(n_jobs = args.threads, verbose = 11)(
+		delayed(bed.calc_stats)(b) for b in bedfiles)
 
 # Add condition columns
 for i in range(len(bstats)):

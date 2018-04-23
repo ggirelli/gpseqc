@@ -8,6 +8,7 @@
 
 # DEPENDENCIES =================================================================
 
+from joblib import delayed, Parallel
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -154,6 +155,61 @@ def est_g(st, f1, f2):
         a = b
     return(out)
 
+def bin_estimate(df, mlist, progress = True):
+    '''Estimate centrality for each bin in a condition combined data frame.
+
+    Args:
+        df (pd.DataFrame): multi-condition data frame.
+        mlist (list): list of metrics to calculate.
+        progress (bool): show progress bar.
+    '''
+
+    # Build generator
+    indexes = list(set(df.index))
+    igen = (i for i in indexes)
+    if progress: igen = tqdm(igen, total = len(indexes))
+
+    # Iterate over bins
+    odf = [bin_estimate_single(i, df, mlist) for i in igen]
+
+    # Assemble output
+    odf = pd.concat(odf, axis = 1).transpose()
+    columns = ['chrom', 'start', 'end']
+    columns.extend(mlist)
+    odf.columns = columns[:odf.shape[1]]
+    odf.index = range(odf.shape[0])
+
+    return(odf)
+
+def bin_estimate_parallel(df, mlist, threads, progress = True):
+    '''Estimate centrality for each bin in a condition combined data frame.
+
+    Args:
+        df (pd.DataFrame): multi-condition data frame.
+        mlist (list): list of metrics to calculate.
+        progress (bool): show progress bar.
+        threads (int): number of threads for parallelization.
+    '''
+
+    threads = check_threads(threads)
+
+    # Build generator
+    verbose = 11 if progress else 0
+
+    # Iterate over bins
+    odf =  Parallel(n_jobs = threads, verbose = verbose)(
+        delayed(bin_estimate_single)(i, df, mlist)
+        for i in list(set(df.index)))
+
+    # Assemble output
+    odf = pd.concat(odf, axis = 1).transpose()
+    columns = ['chrom', 'start', 'end']
+    columns.extend(mlist)
+    odf.columns = columns[:odf.shape[1]]
+    odf.index = range(odf.shape[0])
+
+    return(odf)
+
 def bin_estimate_single(i, df, mlist):
     '''Estimate centrality for a bin in a condition combined data frame.
 
@@ -216,61 +272,6 @@ def bin_estimate_single(i, df, mlist):
             orow[m] = est_f(st, calc_cv, lambda x, y: x - y)
 
     return(orow)
-
-def bin_estimate(df, mlist, progress = True):
-    '''Estimate centrality for each bin in a condition combined data frame.
-
-    Args:
-        df (pd.DataFrame): multi-condition data frame.
-        mlist (list): list of metrics to calculate.
-        progress (bool): show progress bar.
-    '''
-
-    # Build generator
-    indexes = list(set(df.index))
-    igen = (i for i in indexes)
-    if progress: igen = tqdm(igen, total = len(indexes))
-
-    # Iterate over bins
-    odf = [bin_estimate_single(i, df, mlist) for i in igen]
-
-    # Assemble output
-    odf = pd.concat(odf, axis = 1).transpose()
-    columns = ['chrom', 'start', 'end']
-    columns.extend(mlist)
-    odf.columns = columns[:odf.shape[1]]
-    odf.index = range(odf.shape[0])
-
-    return(odf)
-
-def bin_estimate_parallel(df, mlist, threads, progress = True):
-    '''Estimate centrality for each bin in a condition combined data frame.
-
-    Args:
-        df (pd.DataFrame): multi-condition data frame.
-        mlist (list): list of metrics to calculate.
-        progress (bool): show progress bar.
-        threads (int): number of threads for parallelization.
-    '''
-
-    threads = check_threads(threads)
-
-    # Build generator
-    verbose = 11 if progress else 0
-
-    # Iterate over bins
-    odf =  Parallel(n_jobs = threads, verbose = verbose)(
-        delayed(bin_estimate_single)(i, df, mlist)
-        for i in list(set(df.index)))
-
-    # Assemble output
-    odf = pd.concat(odf, axis = 1).transpose()
-    columns = ['chrom', 'start', 'end']
-    columns.extend(mlist)
-    odf.columns = columns[:odf.shape[1]]
-    odf.index = range(odf.shape[0])
-
-    return(odf)
 
 def rank(cdf, mlist, progress = True, chrWide = False):
     '''Rank regions based on centrality estimates.
