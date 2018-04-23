@@ -140,7 +140,7 @@ def normalize(normbed, bed):
 
     return(pbt.BedTool(s, from_string = True))
 
-def to_bins(bins, bed):
+def to_bins(bins, bed, noValues = False, skipEmpty = True):
     '''Assign regions to bins. Each bin will appear once per each intersecting
     region, with the region value field appended. 
 
@@ -152,13 +152,20 @@ def to_bins(bins, bed):
     Args:
         bins (pbt.BedTool): bins bed.
         bed (pbt.BedTool): parsed bed.
+        noValues (bool): do not output value column.
+        skipEmpty (bool): do not output empty bins.
 
     Returns:
         pbt.BedTool: grouped bed.
     '''
 
+    if not noValues:
+        assert_msg = "missing score column, run with 'noValues = True'."
+        assert bed.field_count() >= 5, assert_msg
+        bed = bed.cut(range(5)).sort() # Force to BED5
+
     # Enforce bins to BED3
-    bins = bins.cut(range(3))
+    bins = bins.cut(range(3)).sort()
 
     # Perform intersection
     isect = bins.intersect(bed, wao = True)
@@ -171,34 +178,35 @@ def to_bins(bins, bed):
         with open(isect.fn, "r+") as IH:
             for line in IH:
                 yield line.strip().split("\t")
+    gen = (i for i in parsegen(isect))
+    if skipEmpty: gen = (i for i in gen if float(i[-2]) >= 0)
 
     if not is_overlapping(bins): # Retain only largest intersections
+        def lab(i):
+            return("%s:%s-%s" % tuple(i[3:6]))
+
         def d_update(d, i, bi):
             ''''''
             data = i[:3]
             data.append("row_%d" % bi)
-            data.append(i[7])
-            d[i[6]] = (int(i[8]), bi, data)
+            data.append(i[-2] if float(i[-2]) >= 0 else "0")
+            d[lab(i)] = (int(i[-1]), bi, data)
             return(d)
 
-        for i in parsegen(isect):
-            if float(i[7]) < 0: continue
-
+        for i in gen:
             # Retain only largest intersection
-            if i[6] in d.keys():
-                if int(i[8]) > d[i[6]][0]: d = d_update(d, i, d[i[6]][1])
+            if lab(i) in d.keys():
+                if int(i[-1]) > d[lab(i)][0]: d = d_update(d, i, d[lab(i)][1])
             else:
                 d = d_update(d, i, bi)
                 bi += 1
 
     else: # Retain all intersactions
-        for i in parsegen(isect):
-            if float(i[7]) < 0: continue
-
+        for i in gen:
             data = i[:3]
             data.append("row_%d" % bi)
-            data.append(i[7])
-            d[bi] = (int(i[8]), bi, data)
+            data.append(i[-2])
+            d[bi] = (int(i[-1]), bi, data)
             bi += 1
 
 
@@ -206,7 +214,10 @@ def to_bins(bins, bed):
     d = "\n".join(["\t".join(x[2]) for x in d.values()])
 
     # Format as bed file
-    return(pbt.BedTool(d, from_string = True))
+    d = pbt.BedTool(d, from_string = True)
+    if not noValues: d = d.cut(range(5))
+
+    return(d)
 
 def to_combined_bins(bins, bed, fcomb = None):
     '''Groups UMI-uniqued reads from bed file to bins. For each region in bed,
@@ -224,6 +235,7 @@ def to_combined_bins(bins, bed, fcomb = None):
 
     # Enforce bins to BED3
     bins = bins.cut(range(3))
+    bed = bed.cut(range(5))
 
     # Default combination style: sum
     if type(None) == type(fcomb): fcomb = lambda x, y: x + y
@@ -241,19 +253,19 @@ def to_combined_bins(bins, bed, fcomb = None):
         def d_update(d, i):
             ''''''
             data = i[:3]
-            data.append(i[7])
-            d[i[6]] = (int(i[8]), data)
+            data.append(i[-2])
+            d[i[6]] = (int(i[-1]), data)
             return(d)
 
         d = {}
         with open(isect.fn, "r+") as IH:
             for line in IH:
                 i = line.strip().split("\t")
-                if float(i[7]) < 0: continue
+                if float(i[-2]) < 0: continue
 
                 # Retain only largest intersection
                 if i[6] in d.keys():
-                    if int(i[8]) > d[i[6]][0]: d = d_update(d, i)
+                    if int(i[-1]) > d[i[6]][0]: d = d_update(d, i)
                 else: d = d_update(d, i)
 
         # Combine intersections ------------------------------------------------
@@ -277,19 +289,19 @@ def to_combined_bins(bins, bed, fcomb = None):
             for line in IH:
                 i = line.strip().split("\t")
 
-                i[7] = float(i[7])
-                if i[7] < 0: continue
+                i[-2] = float(i[-2])
+                if i[-2] < 0: continue
 
                 ilabel = " ".join(i[:3])
 
                 # Combine
                 if not ilabel in d2.keys():
-                    if i[7] < 0: i[7] = 0
+                    if i[-2] < 0: i[-2] = 0
                     d2[ilabel] = [i[0], int(i[1]), int(i[2]),
-                        "row_%d" % bi, i[7]]
+                        "row_%d" % bi, i[-2]]
                     bi += 1
                 else:
-                    d2[ilabel][4] = fcomb(d2[ilabel][4], i[7])
+                    d2[ilabel][4] = fcomb(d2[ilabel][4], i[-2])
 
     # Format as bed file
     s = "\n".join(["%s\t%d\t%d\t%s\t%d" % tuple(v) for v in d2.values()])
