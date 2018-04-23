@@ -203,7 +203,7 @@ def to_bins(bins, bed, noValues = False, skipEmpty = True):
                 d = d_update(d, i, bi)
                 bi += 1
 
-    else: # Retain all intersections
+    else: # Retain all intersactions
         for i in gen:
             data = i[:3]
             data.append("row_%d" % bi)
@@ -221,7 +221,7 @@ def to_bins(bins, bed, noValues = False, skipEmpty = True):
 
     return(d)
 
-def to_combined_bins(bins, bed, fcomb = "sum"):
+def to_combined_bins(bins, bed, fcomb = None):
     '''Groups UMI-uniqued reads from bed file to bins. For each region in bed,
     only the largest intersection is considered. Each region in the output will
     have the value 'row_XXX' in the name column.
@@ -229,31 +229,35 @@ def to_combined_bins(bins, bed, fcomb = "sum"):
     Args:
         bins (pbt.BedTool): bins bed.
         bed (pbt.BedTool): parsed bed.
-        fcomb (str): one of the bedtools merge methods:
-                        sum, min, max, absmin, absmax,
-                        mean, median, mode, antimode
-                        stdev, sstdev
+        fcomb (fun): lambda(x,y) for combining.
 
     Returns:
         pbt.BedTool: grouped bed.
     '''
 
-    methods = ['sum', 'min', 'max', 'absmin', 'absmax', 'mean', 'median',
-        'mode', 'antimode', 'stdev', 'sstdev']
-    assert_msg = "unrecognized combination method, got '%s'." % fcomb
-    assert_msg += " Available: %s" % methods
-    assert fcomb in methods, assert_msg
-
     # Enforce bins to BED3
     bins = bins.cut(range(3))
     bed = bed.cut(range(5))
 
+    # Default combination style: sum
+    if type(None) == type(fcomb): fcomb = lambda x, y: x + y
+
     # Perform intersection
     isect = bins.intersect(bed, wao = True)
 
+    d2 = {}
+    bi = 1  # Region counter
+
     if not is_overlapping(bins): # Retain only largest intersection
 
-        # Retain only largest intersections ------------------------------------
+        # Extract largest intersections ----------------------------------------
+
+        def d_update(d, i):
+            ''''''
+            data = i[:3]
+            data.append(i[-2])
+            d[i[6]] = (int(i[-1]), data)
+            return(d)
 
         d = {}
         with open(isect.fn, "r+") as IH:
@@ -263,24 +267,47 @@ def to_combined_bins(bins, bed, fcomb = "sum"):
 
                 # Retain only largest intersection
                 if i[6] in d.keys():
-                    if int(i[-1]) > d[i[6]][0]:
-                        d[i[6]] = (int(i[-1]), line)
-                else: d[i[6]] = (int(i[-1]), line)
+                    if int(i[-1]) > d[i[6]][0]: d = d_update(d, i)
+                else: d = d_update(d, i)
 
-        isect = "".join([v[1] for v in d.values()])
-        isect = pbt.BedTool(isect, from_string = True)
+        # Combine intersections ------------------------------------------------
+
+        for (isize, i) in d.values():
+            i[-1] = float(i[-1])
+            ilabel = " ".join(i[:3])
+
+            # Combine
+            if not ilabel in d2.keys():
+                if i[-1] < 0: i[-1] = 0
+                d2[ilabel] = [i[0], int(i[1]), int(i[2]),
+                    "row_%d" % bi, i[-1]]
+                bi += 1
+            else:
+                d2[ilabel][4] = fcomb(d2[ilabel][4], i[-1])
     
-    # Combine intersections ----------------------------------------------------
+    else: # Retain all intersections
 
-    # Merge and reset naming system
-    isect = isect.merge(d = -50, c = "7,8", o = "first,%s" % fcomb)
-    tmp = ""
-    for i in range(len(isect)):
-        line = isect[i]
-        line[3] = "row_%d" % (i + 1)
-        tmp += "\t".join(line) + "\n"
+        with open(isect.fn, "r+") as IH:
+            for line in IH:
+                i = line.strip().split("\t")
 
-    return(pbt.BedTool(tmp, from_string = True))
+                i[-2] = float(i[-2])
+                if i[-2] < 0: continue
+
+                ilabel = " ".join(i[:3])
+
+                # Combine
+                if not ilabel in d2.keys():
+                    if i[-2] < 0: i[-2] = 0
+                    d2[ilabel] = [i[0], int(i[1]), int(i[2]),
+                        "row_%d" % bi, i[-2]]
+                    bi += 1
+                else:
+                    d2[ilabel][4] = fcomb(d2[ilabel][4], i[-2])
+
+    # Format as bed file
+    s = "\n".join(["%s\t%d\t%d\t%s\t%d" % tuple(v) for v in d2.values()])
+    return(pbt.BedTool(s, from_string = True))
 
 # END ==========================================================================
 
