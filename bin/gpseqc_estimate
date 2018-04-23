@@ -44,6 +44,7 @@
 # DEPENDENCIES =================================================================
 
 import argparse
+from joblib import delayed, Parallel
 import os
 import numpy as np
 import pandas as pd
@@ -53,6 +54,7 @@ import tempfile
 from tqdm import tqdm
 
 from ggc.prompt import ask
+from ggc.args import check_threads
 from gpseq_ce import bed, centrality, cutsite_domain
 
 # PARAMETERS ===================================================================
@@ -128,44 +130,48 @@ parser.add_argument('bedfile', type = str, nargs = '+',
 restriction conditions intensity. Expected to be ordered per condition.""")
 
 # Optional parameters
-parser.add_argument('-o', '--output', type = str, nargs = 1,
+parser.add_argument('-o', '--output', type = str,
 	help = """Path to output folder.""", metavar = "outDir", required = True)
-parser.add_argument('-c', '--cutsite-mode', type = int, nargs = 1,
+parser.add_argument('-c', '--cutsite-mode', type = int,
 	help = """Custite mode (see Notes).""", choices = range(1, 5),
-	metavar = "csMode", default = [3])
+	metavar = "csMode", default = 3)
 csModeLabel = ["1:Universe", "2:Union", "3:Separate+Empty", "4:Intersection"]
-parser.add_argument('-l', '--cutsite-bed', type = str, nargs = 1,
+parser.add_argument('-l', '--cutsite-bed', type = str,
 	help = """Path to cutsite bedfile. Required for -c1 when -g is not used.""",
-	metavar = "csBed", default = [None])
-parser.add_argument('-b', '--bin-bed', type = str, nargs = 1,
+	metavar = "csBed", default = None)
+parser.add_argument('-b', '--bin-bed', type = str,
 	help = """Path to bin bedfile. If used, -s and -p are ignored.""",
-	metavar = "binBed", default = [None])
-parser.add_argument('-s', '--bin-size', type = int, nargs = 1,
+	metavar = "binBed", default = None)
+parser.add_argument('-s', '--bin-size', type = int,
 	help = """Bin size in bp. Default to chromosome-wide bins.""",
-	metavar = "binSize", default = [0])
-parser.add_argument('-p', '--bin-step', type = int, nargs = 1,
+	metavar = "binSize", default = 0)
+parser.add_argument('-p', '--bin-step', type = int,
 	help = """Bin step in bp. Default to bin binSize.""",
-	metavar = "binStep", default = [0])
-parser.add_argument('-g', '--group-size', type = int, nargs = 1,
+	metavar = "binStep", default = 0)
+parser.add_argument('-g', '--group-size', type = int,
 	help = """Group size in bp. Used to group bins for statistics calculation.
 	binSize must be divisible by groupSize. Not used by default.""",
-	metavar = "groupSize", default = [0])
+	metavar = "groupSize", default = 0)
 metrics = ['prob_2p', 'prob_f', 'prob_g', 'cor_2p', 'cor_f', 'cor_g', 'roc_2p',
 	'roc_f', 'roc_g', 'var_2p', 'var_f', 'ff_2p', 'ff_f', 'cv_2p', 'cv_f']
 parser.add_argument('-e', '--exclude', type = str, nargs = '*',
 	help = """Space-separated list of metrics to exclude from calculation.
 	All metrics BUT the specified ones are calculated.""",
-	metavar = "metric", default = [None], choices = metrics)
+	metavar = "metric", default = None, choices = metrics)
 parser.add_argument('-i', '--include', type = str, nargs = '*',
 	help = """Space-separated list of metrics to be calculated.
 	Only the specified metrics are calculated.""",
-	metavar = "metric", default = [None], choices = metrics)
-parser.add_argument('-r', '--prefix', type = str, nargs = 1,
-	help = """Output name prefix.""", metavar = "prefix", default = [""])
-parser.add_argument('-u', '--suffix', type = str, nargs = 1,
-	help = """Output name suffix.""", metavar = "suffix", default = [""])
-parser.add_argument('-T', type = str, nargs = 1,
-	help = '''Path to temporary folder.''', default = [tempfile.gettempdir()])
+	metavar = "metric", default = None, choices = metrics)
+parser.add_argument('-r', '--prefix', type = str,
+	help = """Output name prefix.""", metavar = "prefix", default = "")
+parser.add_argument('-u', '--suffix', type = str,
+	help = """Output name suffix.""", metavar = "suffix", default = "")
+parser.add_argument('-t', '--threads', metavar = 'nthreads', type = int,
+	default = 1,
+	help = """Number of threads to be used for parallelization. Increasing the
+	number of threads might increase the required amount of RAM.""")
+parser.add_argument('-T', type = str,
+	help = '''Path to temporary folder.''', default = tempfile.gettempdir())
 
 # Flag parameters
 parser.add_argument('-y', '--do-all', action = 'store_const',
@@ -188,6 +194,8 @@ args = parser.parse_args()
 
 # Check input ------------------------------------------------------------------
 
+args.threads = check_threads(args.threads)
+
 # At least two bed files if not normalizing
 assert_msg = "at least two (2) GPSeq condition bedfiles,"
 assert_msg += " in increasing order of restriction"
@@ -205,14 +213,14 @@ if args.normalize:
 assert pbt.check_for_bedtools(), "bedtools required."
 
 # -e and -i cannot be used together
-doExclude = not type(None)==type(args.exclude[0])
-doInclude = not type(None)==type(args.include[0])
+doExclude = not type(None) == type(args.exclude)
+doInclude = not type(None) == type(args.include)
 assert not(doExclude and doInclude), "options -e/-i cannot be used together."
 
 # Identify selected metrics
 toCalc = metrics
-if doInclude: toCalc = args.include[0]
-if doExclude: toCalc = [m for m in metrics if m not in args.exclude[0]]
+if doInclude: toCalc = args.include
+if doExclude: toCalc = [m for m in metrics if m not in args.exclude]
 
 # All provided bed files must exist
 for bp in args.bedfile:
@@ -220,42 +228,42 @@ for bp in args.bedfile:
 
 # -l option is mandatory with -gc1
 assert_msg = "missing -l option with -gc1."
-assertc = 1 == args.cutsite_mode[0] and 0 == args.group_size[0]
-assert not(assertc and type(None) == type(args.cutsite_bed[0])), assert_msg
+assertc = 1 == args.cutsite_mode and 0 == args.group_size
+assert not(assertc and type(None) == type(args.cutsite_bed)), assert_msg
 
 # Bin size, bin step and group size must be positive
-assert 0 <= args.bin_size[0], "bin size must be a positive integer."
-assert 0 <= args.bin_step[0], "bin step must be a positive integer."
-assert 0 <= args.group_size[0], "group size must be a positive integer."
+assert 0 <= args.bin_size, "bin size must be a positive integer."
+assert 0 <= args.bin_step, "bin step must be a positive integer."
+assert 0 <= args.group_size, "group size must be a positive integer."
 
 # Bin size >= bin step
 assert_msg = "bin size must be greater then or equal to bin step."
-assert args.bin_size[0] >= args.bin_step[0], assert_msg
+assert args.bin_size >= args.bin_step, assert_msg
 
-if args.bin_size[0] != 0 and args.bin_step[0] == 0:
+if args.bin_size != 0 and args.bin_step == 0:
 	args.bin_step = args.bin_size
 
-if 0 != args.bin_size[0] and 0 != args.group_size[0]:
+if 0 != args.bin_size and 0 != args.group_size:
 	assert_msg = "bin size must be divisible by group size."
-	assert 0 == args.bin_size[0] % args.group_size[0], assert_msg
+	assert 0 == args.bin_size % args.group_size, assert_msg
 
-if 0 != args.bin_step[0] and 0 != args.group_size:
+if 0 != args.bin_step and 0 != args.group_size:
 	assert_msg = "bin step must be greater than group size."
-	assert args.bin_step[0] > args.group_size[0], assert_msg
+	assert args.bin_step > args.group_size, assert_msg
 
-if 0 != args.bin_step[0] and 0 == args.bin_size[0]:
+if 0 != args.bin_step and 0 == args.bin_size:
 	print("wARNING: missing bin size, ignoring -p option.")
-	args.bin_step = [0]
+	args.bin_step = 0
 
 # Temporary folder must exist
-assert os.path.isdir(args.T[0]), "temporary folder not found: %s" % args.T[0]
-pbt.set_tempdir(args.T[0])
+assert os.path.isdir(args.T), "temporary folder not found: %s" % args.T
+pbt.set_tempdir(args.T)
 
 # Adjust prefix/suffix if needed
-if 0 != len(args.prefix[0]):
-	if '.' != args.prefix[0][-1]: args.prefix[0] += '.'
-if 0 != len(args.suffix[0]):
-	if '.' != args.suffix[0][0]: args.suffix[0] = '.' + args.suffix[0]
+if 0 != len(args.prefix):
+	if '.' != args.prefix[-1]: args.prefix += '.'
+if 0 != len(args.suffix):
+	if '.' != args.suffix[0]: args.suffix = '.' + args.suffix
 
 # FUNCTION =====================================================================
 
@@ -268,38 +276,42 @@ def print_settings(args, clear = True):
 	'''
 	s = " # GPSeq-centrality-estimate\n\n"
 
-	if type(None) != type(args.bin_bed[0]):
-		s += " Bin be file: %s\n" % args.bin_bed[0]
+	if type(None) != type(args.bin_bed):
+		s += " Bin be file: %s\n" % args.bin_bed
 
-	if 0 == args.bin_size[0] and type(None) == type(args.bin_bed[0]):
+	if 0 == args.bin_size and type(None) == type(args.bin_bed):
 		s += " Using chr-wide bins.\n"
 	else:
 		s += "   Bin size : %d\n   Bin step : %d\n" % (
-			args.bin_size[0], args.bin_step[0])
+			args.bin_size, args.bin_step)
 
-	if 0 != args.group_size[0]:
-		s += " Group size : %d\n" % args.group_size[0]
+	if 0 != args.group_size:
+		s += " Group size : %d\n" % args.group_size
 
-	s += "     Domain : %s\n" % csModeLabel[args.cutsite_mode[0] - 1]
+	s += "     Domain : %s\n" % csModeLabel[args.cutsite_mode - 1]
 
-	if 1 == args.cutsite_mode[0]:
-		s += "    Cutsite : %s\n" % args.cutsite_bed[0]
+	if 1 == args.cutsite_mode:
+		s += "    Cutsite : %s\n" % args.cutsite_bed
 
-	if 0 != len(args.prefix[0]): s += "     Prefix : '%s'\n" % args.prefix[0]
-	if 0 != len(args.suffix[0]): s += "     Suffix : '%s'\n" % args.suffix[0]
+
+	if 0 != len(args.prefix): s += "     Prefix : '%s'\n" % args.prefix
+	if 0 != len(args.suffix): s += "     Suffix : '%s'\n" % args.suffix
 
 	if args.normalize: s += "\n Normalizing over last condition.\n"
 	if args.debug_mode: s += "\n Debugging mode ON.\n"
 
-	doExclude = not type(None)==type(args.exclude[0])
-	if doExclude:
-		s += "\n Excluded metrics:\n  %s\n" % ", ".join(args.exclude[0])
-	doInclude = not type(None)==type(args.include[0])
-	if doInclude:
-		s += "\n Included metrics:\n  %s\n" % ", ".join(args.include[0])
 
-	s += "\n Output dir : %s\n  Bed files : \n" % args.output[0]
-	s += "".join(["   %s\n" % bp for bp in args.bedfile])
+	doExclude = not type(None) == type(args.exclude)
+	if doExclude:
+		s += "\n Excluded metrics:\n  %s\n" % ", ".join(args.exclude)
+	doInclude = not type(None) == type(args.include)
+	if doInclude:
+		s += "\n Included metrics:\n  %s\n" % ", ".join(args.include)
+
+	s += "\n    Threads : %d\n" % args.threads
+	s += " Output dir : %s\n  Bed files : \n" % args.output
+	s += "".join(["   (%d) %s\n" % (i + 1, args.bedfile[i])
+		for i in range(len(args.bedfile))])
 
 	if clear: print("\033[H\033[J%s" % s)
 	else: print(s)
@@ -307,8 +319,8 @@ def print_settings(args, clear = True):
 
 def build_opath(fname, args):
 	fname = os.path.splitext(os.path.basename(fname))
-	fname = "".join([args.prefix[0], fname[0], args.suffix[0], fname[1]])
-	fname = os.path.join(args.output[0], fname)
+	fname = "".join([args.prefix, fname[0], args.suffix, fname[1]])
+	fname = os.path.join(args.output, fname)
 	return(fname)
 
 def bed_saveas(bed, fname, args):
@@ -326,16 +338,16 @@ ask("Confirm settings and proceed?")
 
 # Build run description string
 descr = ""
-if type(None) != type(args.bin_bed[0]): descr += "customBins"
-elif 0 == args.bin_size[0]: descr += "bins.chrWide"
-else: descr += "bins.size%d.step%d" % (args.bin_size[0], args.bin_step[0])
-if 0 != args.group_size[0]: descr += ".group%d" % args.group_size[0]
-descr += ".csm%d" % args.cutsite_mode[0]
+if type(None) != type(args.bin_bed): descr += "customBins"
+elif 0 == args.bin_size: descr += "bins.chrWide"
+else: descr += "bins.size%d.step%d" % (args.bin_size, args.bin_step)
+if 0 != args.group_size: descr += ".group%d" % args.group_size
+descr += ".csm%d" % args.cutsite_mode
 if args.normalize: descr += ".norm"
 
 # Save confirmed settings
-with open(os.path.join(args.output[0], "%ssettings.%s%s.txt" % (
-	args.prefix[0], descr, args.suffix[0])), "w+") as OH:
+with open(os.path.join(args.output, "%ssettings.%s%s.txt" % (
+	args.prefix, descr, args.suffix)), "w+") as OH:
 	OH.write(ssettings)
 
 # Parse all bed files ----------------------------------------------------------
@@ -353,34 +365,43 @@ for b in tqdm(args.bedfile):
 # (2) Generate bins ------------------------------------------------------------
 print("Generating bins...")
 
-if not type(None) == type(args.bin_bed[0]):
+if not type(None) == type(args.bin_bed):
 	# Custom bins
 	bins = pbt.BedTool(args.bin_bed[0])
-elif 0 == args.bin_size[0] and type(None) == type(args.bin_bed[0]):
+elif 0 == args.bin_size and type(None) == type(args.bin_bed):
 	# Chromosome-wide bins
 	s = "\n".join(["%s\t%d\t%d\t" % (c, 0, e) for (c, e) in chr_sizes.items()])
 	bins = pbt.BedTool(s, from_string = True)
 else:
 	# Sub-chromosome bins
-	bins = bed.mk_windows(chr_sizes, args.bin_size[0], args.bin_step[0])
+	bins = bed.mk_windows(chr_sizes, args.bin_size, args.bin_step)
 
 if args.debug_mode: bed_saveas(bins, "bins.%s.bed" % descr, args)
 
 # (3) Group cutsites (intersect) -----------------------------------------------
 
 groups = None
-if 0 != args.group_size[0]:
+if 0 != args.group_size:
 	print("Grouping reads...")
 
 	# Generate groups bed
-	groups = bed.mk_windows(chr_sizes, args.group_size[0], args.group_size[0])
+	groups = bed.mk_windows(chr_sizes, args.group_size, args.group_size)
 	if args.debug_mode: bed_saveas(groups, "groups.%s.bed" % descr, args)
 
 	# Intersect
-	for i in tqdm(range(len(bedfiles))):
+	def do_intersect(i, bedfiles, groups, descr, args):
 		bedfiles[i] = bed.to_combined_bins(groups, bedfiles[i])
 		if args.debug_mode: bed_saveas(bedfiles[i], "grouped.%s.%s.tsv" % (
 			descr, os.path.basename(args.bedfile[i])), args)
+		return(bedfiles[i])
+
+	if 1 == args.threads:
+		for i in tqdm(range(len(bedfiles))):
+			do_intersect(i, bedfiles, groups, descr, args)
+	else:
+		bedfiles =  Parallel(n_jobs = args.threads, verbose = 11)(
+			delayed(do_intersect)(i, bedfiles, groups, descr, args)
+			for i in range(len(bedfiles)))
 
 # (4) Normalize over last condition --------------------------------------------
 
@@ -392,15 +413,24 @@ if args.normalize:
 	bedfiles = bedfiles[:-1]
 
 	# Normalize
-	for i in tqdm(range(len(bedfiles))):
+	def do_normalize(i, bedfiles, normbed, descr, args):
 		bedfiles[i] = bed.normalize(normbed, bedfiles[i])
 		if args.debug_mode: bed_saveas(bedfiles[i], "normlast.%s.%s.tsv" % (
 			descr, os.path.basename(args.bedfile[i])), args)
+		return(bedfiles[i])
+	
+	if 1 == args.threads:
+		for i in tqdm(range(len(bedfiles))):
+			do_normalize(i, bedfiles, normbed, descr, args)
+	else:
+		bedfiles =  Parallel(n_jobs = args.threads, verbose = 11)(
+			delayed(do_normalize)(i, bedfiles, normbed, descr, args)
+			for i in range(len(bedfiles)))
 
 # (5) Prepare domain -----------------------------------------------------------
 print("Preparing cutsites...")
 
-csbed = cutsite_domain.build(bedfiles, args.cutsite_mode[0],
+csbed = cutsite_domain.build(bedfiles, args.cutsite_mode,
 	csbed = args.cutsite_bed, groups = groups)
 
 # Save if debugging
@@ -418,12 +448,20 @@ if args.debug_mode:
 # (6) Assign reads to bins (intersect) -----------------------------------------
 print("Assigning to bins...")
 
-for i in tqdm(range(len(bedfiles))):
+def do_assign(i, bedfiles, bins, descr, args):
 	bedfiles[i] = bed.to_bins(bins, bedfiles[i])
-
 	# Save if debugging
 	if args.debug_mode: bed_saveas(bedfiles[i], "intersected.%s.%s.tsv" % (
 		descr, os.path.basename(args.bedfile[i])), args)
+	return(bedfiles[i])
+
+if 1 == args.threads:
+	for i in tqdm(range(len(bedfiles))):
+		do_assign(i, bedfiles, bins, descr, args)
+else:
+	bedfiles =  Parallel(n_jobs = args.threads, verbose = 11)(
+		delayed(do_assign)(i, bedfiles, bins, descr, args)
+		for i in range(len(bedfiles)))
 
 # (7) Calculate bin statistics -------------------------------------------------
 print("Calculating bin statistics...")
@@ -450,14 +488,17 @@ df_saveas(comb, "combined.%s.tsv" % descr, args)
 print("Estimating centrality...")
 
 # Estimate centrality of each bin
-est = centrality.bin_estimate(comb, toCalc)
+if 1 == args.threads:
+	est = centrality.bin_estimate(comb, toCalc)
+else:
+	est = centrality.bin_estimate_parallel(comb, toCalc, args.threads)
 df_saveas(est, "estimated.%s.tsv" % descr, args)
 
 # (10) Rank bins ---------------------------------------------------------------
 print("Ranking bins...")
 
 # Rank bins
-rank = centrality.rank(est, toCalc, chrWide = args.bin_size[0] == 0)
+rank = centrality.rank(est, toCalc, chrWide = args.bin_size == 0)
 df_saveas(rank, "ranked.%s.tsv" % descr, args)
 
 # End --------------------------------------------------------------------------

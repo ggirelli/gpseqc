@@ -12,6 +12,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+from ggc.args import check_threads
+
 # FUNCTIONS ====================================================================
 
 def calc_p(st, ci):
@@ -152,6 +154,69 @@ def est_g(st, f1, f2):
         a = b
     return(out)
 
+def bin_estimate_single(i, df, mlist):
+    '''Estimate centrality for a bin in a condition combined data frame.
+
+    Args:
+        i (int): bin id.
+        df (pd.DataFrame): multi-condition data frame.
+        mlist (list): list of metrics to calculate.
+    '''
+
+    st = df.loc[i, :]
+    st.index = range(st.shape[0])
+
+    # Prepare output
+    orow = st.ix[0, ['chrom', 'start', 'end']]
+
+    # Calculate requested metrics
+    for m in mlist:
+        # Probability
+        if m == "prob_2p": # two-points
+            orow[m] = est_2p(st, calc_p, lambda x, y: x / y)
+        elif m == "prob_f": # fixed
+            orow[m] = est_f(st, calc_p, lambda x, y: x / y)
+        elif m == "prob_g": # global
+            orow[m] = est_g(st, calc_p, lambda x, y: x / y)
+
+        # Cumulative ratio
+        elif m == "cor_2p": # two-points
+            orow[m] = est_2p(st, calc_pc, lambda x, y: x / y)
+        elif m == "cor_f": # fixed
+            orow[m] = est_f(st, calc_pc, lambda x, y: x / y)
+        elif m == "cor_g": # global
+            orow[m] = est_g(st, calc_pc, lambda x, y: x / y)
+
+        # Ratio of cumulative
+        elif m == "roc_2p": # two-points
+            orow[m] = est_2p(st, calc_pr, lambda x, y: x / y)
+        elif m == "roc_f": # fixed
+            orow[m] = est_f(st, calc_pr, lambda x, y: x / y)
+        elif m == "roc_g": # global
+            orow[m] = est_g(st, calc_pr, lambda x, y: x / y)
+
+        # Variance
+        elif m == "var_2p": # two-points
+            orow[m] = est_2p(st, calc_var,
+                lambda x, y: np.log(x / y) if y != 0 else np.nan)
+        elif m == "var_f": # fixed
+            orow[m] = est_f(st, calc_var,
+                lambda x, y: np.log(x / y) if y != 0 else np.nan)
+
+        # Fano factor
+        elif m == "ff_2p": # two-points
+            orow[m] = est_2p(st, calc_ff, lambda x, y: x - y)
+        elif m == "ff_f": # fixed
+            orow[m] = est_f(st, calc_ff, lambda x, y: x - y)
+
+        # Coefficient of variation
+        elif m == "cv_2p": # two-points
+            orow[m] = est_2p(st, calc_cv, lambda x, y: x - y)
+        elif m == "cv_f": # fixed
+            orow[m] = est_f(st, calc_cv, lambda x, y: x - y)
+
+    return(orow)
+
 def bin_estimate(df, mlist, progress = True):
     '''Estimate centrality for each bin in a condition combined data frame.
 
@@ -167,59 +232,36 @@ def bin_estimate(df, mlist, progress = True):
     if progress: igen = tqdm(igen, total = len(indexes))
 
     # Iterate over bins
-    odf = []
-    for i in igen:
-        st = df.loc[i, :]
-        st.index = range(st.shape[0])
+    odf = [bin_estimate_single(i, df, mlist) for i in igen]
 
-        # Prepare output
-        orow = st.ix[0, ['chrom', 'start', 'end']]
+    # Assemble output
+    odf = pd.concat(odf, axis = 1).transpose()
+    columns = ['chrom', 'start', 'end']
+    columns.extend(mlist)
+    odf.columns = columns[:odf.shape[1]]
+    odf.index = range(odf.shape[0])
 
-        # Calculate requested metrics
-        for m in mlist:
-            # Probability
-            if m == "prob_2p": # two-points
-                orow[m] = est_2p(st, calc_p, lambda x, y: x / y)
-            elif m == "prob_f": # fixed
-                orow[m] = est_f(st, calc_p, lambda x, y: x / y)
-            elif m == "prob_g": # global
-                orow[m] = est_g(st, calc_p, lambda x, y: x / y)
+    return(odf)
 
-            # Cumulative ratio
-            elif m == "cor_2p": # two-points
-                orow[m] = est_2p(st, calc_pc, lambda x, y: x / y)
-            elif m == "cor_f": # fixed
-                orow[m] = est_f(st, calc_pc, lambda x, y: x / y)
-            elif m == "cor_g": # global
-                orow[m] = est_g(st, calc_pc, lambda x, y: x / y)
+def bin_estimate_parallel(df, mlist, threads, progress = True):
+    '''Estimate centrality for each bin in a condition combined data frame.
 
-            # Ratio of cumulative
-            elif m == "roc_2p": # two-points
-                orow[m] = est_2p(st, calc_pr, lambda x, y: x / y)
-            elif m == "roc_f": # fixed
-                orow[m] = est_f(st, calc_pr, lambda x, y: x / y)
-            elif m == "roc_g": # global
-                orow[m] = est_g(st, calc_pr, lambda x, y: x / y)
+    Args:
+        df (pd.DataFrame): multi-condition data frame.
+        mlist (list): list of metrics to calculate.
+        progress (bool): show progress bar.
+        threads (int): number of threads for parallelization.
+    '''
 
-            # Variance
-            elif m == "var_2p": # two-points
-                orow[m] = est_2p(st, calc_var, lambda x, y: np.log(x / y))
-            elif m == "var_f": # fixed
-                orow[m] = est_f(st, calc_var, lambda x, y: np.log(x / y))
+    threads = check_threads(threads)
 
-            # Fano factor
-            elif m == "ff_2p": # two-points
-                orow[m] = est_2p(st, calc_ff, lambda x, y: x - y)
-            elif m == "ff_f": # fixed
-                orow[m] = est_f(st, calc_ff, lambda x, y: x - y)
+    # Build generator
+    verbose = 11 if progress else 0
 
-            # Coefficient of variation
-            elif m == "cv_2p": # two-points
-                orow[m] = est_2p(st, calc_cv, lambda x, y: x - y)
-            elif m == "cv_f": # fixed
-                orow[m] = est_f(st, calc_cv, lambda x, y: x - y)
-
-        odf.append(orow)
+    # Iterate over bins
+    odf =  Parallel(n_jobs = threads, verbose = verbose)(
+        delayed(bin_estimate_single)(i, df, mlist)
+        for i in list(set(df.index)))
 
     # Assemble output
     odf = pd.concat(odf, axis = 1).transpose()
