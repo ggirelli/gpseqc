@@ -135,7 +135,7 @@ parser.add_argument('-o', '--output', type = str,
 parser.add_argument('-c', '--cutsite-mode', type = int,
 	help = """Custite mode (see Notes).""", choices = range(1, 5),
 	metavar = "csMode", default = 3)
-csModeLabel = ["1:Universe", "2:Union", "3:Separate+Empty", "4:Intersection"]
+csModeLabel = ["1:Universe", "2:Union", "3:Separate/NoEmpty", "4:Intersection"]
 parser.add_argument('-l', '--cutsite-bed', type = str,
 	help = """Path to cutsite bedfile. Required for -c1 when -g is not used.""",
 	metavar = "csBed", default = None)
@@ -329,7 +329,7 @@ def bed_saveas(bed, fname, args):
 
 def df_saveas(df, fname, args):
 	fname = build_opath(fname, args)
-	df.to_csv(fname, header = True, index = False, sep = "\t")
+	df.to_csv(fname, header = True, index = False, sep = "\t", na_rep = "nan")
 
 # RUN ==========================================================================
 
@@ -351,6 +351,7 @@ with open(os.path.join(args.output, "%ssettings.%s%s.txt" % (
 	OH.write(ssettings)
 
 # Parse all bed files ----------------------------------------------------------
+print("Parsing bedfiles and counting reads...")
 
 bedfiles = [pbt.BedTool(b) for b in args.bedfile]
 conds_nreads = [len(b) for b in bedfiles]
@@ -450,7 +451,7 @@ print("Assigning to bins...")
 
 def do_assign(i, bedfiles, bins, descr, args):
 	bedfiles[i] = bed.to_bins(bins, bedfiles[i])
-	
+
 	# Save if debugging
 	if args.debug_mode: bed_saveas(bedfiles[i], "intersected.%s.%s.tsv" % (
 		descr, os.path.basename(args.bedfile[i])), args)

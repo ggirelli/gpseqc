@@ -8,7 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 ### Changed
-- Implementing as Python package `gpseq_ce`.
+- Implemented as Python package `gpseqc`.
+
+
 
 ## [1.2.2] - 2018-04-16
 ### Fixed
