@@ -110,7 +110,7 @@ def calc_cv(st, ci):
     return(cv)
 
 def est_2p(st, f1, f2):
-    '''Estimates centrality by combining conditions with two-points fashion.
+    '''Estimates centrality by combining conditions in a two-points fashion.
 
     Args:
         st (pd.DataFrame): bin-based data frame (over conditions).
@@ -125,7 +125,7 @@ def est_2p(st, f1, f2):
     return(f2(b, a))
 
 def est_f(st, f1, f2):
-    '''Estimates centrality by combining conditions with fixed fashion.
+    '''Estimates centrality by combining conditions in a fixed fashion.
 
     Args:
         st (pd.DataFrame): bin-based data frame (over conditions).
@@ -143,7 +143,7 @@ def est_f(st, f1, f2):
     return(out)
 
 def est_g(st, f1, f2):
-    '''Estimates centrality by combining conditions with global fashion.
+    '''Estimates centrality by combining conditions in a global fashion.
 
     Args:
         st (pd.DataFrame): bin-based data frame (over conditions).
@@ -160,6 +160,11 @@ def est_g(st, f1, f2):
         out += f2(b, a)
         a = b
     return(out)
+
+def logratio(x, y):
+    if np.isnan(y) or np.isnan(x): return(np.nan)
+    if y != 0 and x != 0: return(np.log(x / y))
+    else: return(np.nan)
 
 def bin_estimate(df, mlist, progress = True):
     '''Estimate centrality for each bin in a condition combined data frame.
@@ -200,7 +205,7 @@ def bin_estimate_parallel(df, mlist, threads, progress = True):
     threads = check_threads(threads)
 
     # Build generator
-    verbose = 11 if progress else 0
+    verbose = 10 if progress else 0
 
     # Iterate over bins
     odf =  Parallel(n_jobs = threads, verbose = verbose)(
@@ -259,11 +264,9 @@ def bin_estimate_single(i, df, mlist):
 
         # Variance
         elif m == "var_2p": # two-points
-            orow[m] = est_2p(st, calc_var,
-                lambda x, y: np.log(x / y) if y != 0 else np.nan)
+            orow[m] = est_2p(st, calc_var, logratio)
         elif m == "var_f": # fixed
-            orow[m] = est_f(st, calc_var,
-                lambda x, y: np.log(x / y) if y != 0 else np.nan)
+            orow[m] = est_f(st, calc_var, logratio)
 
         # Fano factor
         elif m == "ff_2p": # two-points
@@ -306,19 +309,19 @@ def rank(cdf, mlist, progress = True, chrWide = False):
 
     # Rank and label regions
     odf = []
-    [odf.append([labels[i] for i in np.argsort(cdf[m].values)]) for m in gen]
+    for m in gen:
+        l = []
+        for i in np.argsort(cdf[m].values):
+            x = cdf[m].values[i]
+            if not np.isnan(x) and not np.isinf(x):
+                l.append(labels[i])
+            else:
+                l.append(np.nan)
+        odf.append(l)
     
     # Assemble ranks into a single DataFrame
     odf = pd.DataFrame(odf).transpose()
     odf.columns = [m for m in mlist if m in cdf.columns]
-
-    # Remove nan/inf from ranking
-    for m in mlist:
-        if m in odf.columns:
-            nanloc = np.isnan(cdf[m].values[np.argsort(cdf[m].values)])
-            odf.ix[nanloc, m] = np.nan
-            infloc = np.isinf(cdf[m].values[np.argsort(cdf[m].values)])
-            odf.ix[infloc, m] = np.nan
 
     return(odf)
 
