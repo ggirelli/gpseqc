@@ -31,10 +31,20 @@ df2 = pd.DataFrame([
     ['chr10', 0, 135503768, 285805, 24.7022471910112, 20.041079768043, 11570, 6380685, 5],
     ['chr10', 0, 135503768, 332791, 28.681461690942, 22.5135593268717, 11603, 7348941, 6]
 ])
+df3 = pd.DataFrame([
+    ['chr11', 0, 35503768, 37874, 3.77306236302052, np.nan, 10038, 876501, 1],
+    ['chr11', 0, 35503768, 45549, 4.52818371607516, 3.48548407771986, 10059, 1045062, 2],
+    ['chr11', 0, 35503768, 293384, 25.1723723723724, 18.2363780110097, 11655, 6625898, 3],
+    ['chr11', 0, 35503768, 246839, 21.0829347454732, 14.8824240340175, 11708, 5706581, 4],
+    ['chr11', 0, 35503768, 285805, 24.7022471910112, 20.041079768043, 11570, 6380685, 5],
+    ['chr11', 0, 35503768, 332791, 28.681461690942, 22.5135593268717, 11603, 7348941, 6]
+])
 df1.index = [0 for i in range(df1.shape[0])]
 df2.index = [1 for i in range(df2.shape[0])]
+df3.index = [2 for i in range(df3.shape[0])]
 df1.columns = ['chrom', 'start', 'end', 'sum', 'mean', 'std', 'count', 'cond_nreads', 'cond']
 df2.columns = ['chrom', 'start', 'end', 'sum', 'mean', 'std', 'count', 'cond_nreads', 'cond']
+df3.columns = ['chrom', 'start', 'end', 'sum', 'mean', 'std', 'count', 'cond_nreads', 'cond']
 
 # FUNCTIONS ====================================================================
 
@@ -131,6 +141,15 @@ def test_rank():
     assert all(erank == rank['prob_2p'].values)
     assert all(erank[::-1] == rank['var_f'].values)
     assert all(erank[::-1] == rank['roc_g'].values)
+
+    est = c.bin_estimate(pd.concat([df1, df2, df3]),
+    ["prob_2p", "var_f", "roc_g"], False)
+    rank = c.rank(est, ["prob_2p", "var_f", "roc_g"], False)
+    erank = ['chr1:0-249221236', 'chr10:0-135503768', 'chr11:0-35503768']
+
+    assert all(erank == rank['prob_2p'].values)
+    assert str([erank[1], erank[0], np.nan])==str(rank['var_f'].values.tolist())
+    assert all([erank[1], erank[2], erank[0]] == rank['roc_g'].values)
 
 # END ==========================================================================
 

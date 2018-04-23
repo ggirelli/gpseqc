@@ -312,7 +312,7 @@ def rank(cdf, mlist, progress = True, chrWide = False):
     for m in gen:
         l = []
         for i in np.argsort(cdf[m].values):
-            x = cdf[m].values[i]
+            x = float(cdf[m].values[i])
             if not np.isnan(x) and not np.isinf(x):
                 l.append(labels[i])
             else:
