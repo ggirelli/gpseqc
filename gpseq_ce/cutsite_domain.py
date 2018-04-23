@@ -94,8 +94,8 @@ def apply(bedfiles, csbed):
     else:
         print("Applying cutsite domain...")
         for bid in range(len(bedfiles)):
-            bedfiles[bid] = bed.to_bins(csbed, bedfiles[bid],
-                skipEmpty = False).merge(
+            bedfiles[bid] = bed.to_bins(csbed, bedfiles[bid], skipEmpty = False)
+            bedfiles[bid] = bedfiles[bid].merge(
                 d = -1, o = "first,sum", c = "4,5")
 
     return(bedfiles)

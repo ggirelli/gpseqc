@@ -186,11 +186,13 @@ def to_bins(bins, bed, noValues = False, skipEmpty = True):
             return("%s:%s-%s" % tuple(i[3:6]))
 
         def d_update(d, i, bi):
-            ''''''
             data = i[:3]
             data.append("row_%d" % bi)
             data.append(i[-2] if float(i[-2]) >= 0 else "0")
-            d[lab(i)] = (int(i[-1]), bi, data)
+            
+            if lab(i) == ".:-1--1": d["row_%d" % bi] = (int(i[-1]), bi, data)
+            else: d[lab(i)] = (int(i[-1]), bi, data)
+
             return(d)
 
         for i in gen:
