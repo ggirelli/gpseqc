@@ -29,7 +29,9 @@ def calc_p(st, ci):
     '''
     assert ci < st.shape[0], "requested condition (index) not found."
     row = st.iloc[ci, :]
-    return(row['sum'] / (row['cond_nreads'] * row['count']))
+    p = (row['cond_nreads'] * row['count'])
+    p = row['sum'] / p if 0 != p else np.nan
+    return(p)
 
 def calc_pc(st, ci):
     '''Calculate cumulative restriction probability.
@@ -60,8 +62,8 @@ def calc_pr(st, ci):
     if ci == 0:
         return(calc_p(st, 0))
     else:
-        p = t.loc[:, "sum"].sum()
-        p /= np.sum(t.loc[:, "cond_nreads"].values * t.loc[:, "count"].values)
+        p = np.sum(t.loc[:, "cond_nreads"].values * t.loc[:, "count"].values)
+        p = t.loc[:, "sum"].sum() / p if 0 != p else np.nan
         return(p)
 
 def calc_var(st, ci):
@@ -88,7 +90,9 @@ def calc_ff(st, ci):
         np.float64
     '''
     assert ci < st.shape[0], "requested condition (index) not found."
-    return(np.power(st["std"].values[ci], 2) / st["mean"].values[ci])
+    ff = st["mean"].values[ci]
+    ff = np.power(st["std"].values[ci], 2) / ff if 0 != ff else np.nan
+    return(ff)
 
 def calc_cv(st, ci):
     '''Calculate coefficient of variation
@@ -101,7 +105,9 @@ def calc_cv(st, ci):
         np.float64
     '''
     assert ci < st.shape[0], "requested condition (index) not found."
-    return(st["std"].values[ci] / st["mean"].values[ci])
+    cv = st["mean"].values[ci]
+    cv = st["std"].values[ci] / cv if 0 != cv else np.nan
+    return(cv)
 
 def est_2p(st, f1, f2):
     '''Estimates centrality by combining conditions with two-points fashion.
