@@ -168,7 +168,7 @@ def to_bins(bins, bed, noValues = False, skipEmpty = True):
     bins = bins.cut(range(3)).sort()
 
     # Perform intersection
-    isect = bins.intersect(bed, wao = True)
+    isect = bins.intersect(bed, wao = True, sorted = True)
 
     d = {}              # Output container
     bi = 1              # Region counter
@@ -211,7 +211,6 @@ def to_bins(bins, bed, noValues = False, skipEmpty = True):
             d[bi] = (int(i[-1]), bi, data)
             bi += 1
 
-
     # Assemble
     d = "\n".join(["\t".join(x[2]) for x in d.values()])
 
@@ -243,7 +242,7 @@ def to_combined_bins(bins, bed, fcomb = None):
     if type(None) == type(fcomb): fcomb = lambda x, y: x + y
 
     # Perform intersection
-    isect = bins.intersect(bed, wao = True)
+    isect = bins.intersect(bed, wao = True, sorted = True)
 
     d2 = {}
     bi = 1  # Region counter
@@ -253,7 +252,6 @@ def to_combined_bins(bins, bed, fcomb = None):
         # Extract largest intersections ----------------------------------------
 
         def d_update(d, i):
-            ''''''
             data = i[:3]
             data.append(i[-2])
             d[i[6]] = (int(i[-1]), data)
