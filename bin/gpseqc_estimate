@@ -406,7 +406,7 @@ csbed = cutsite_domain.build(bedfiles, args.cutsite_mode[0],
 if not type(None) == type(csbed) and args.debug_mode:
 	bed_saveas(csbed, "cutsites.%s.bed" % descr, args)
 
-bedfiles = cutsite_domain.apply(bedfiles, csbed, groups)
+bedfiles = cutsite_domain.apply(bedfiles, csbed)
 
 # Save if debugging
 if args.debug_mode:

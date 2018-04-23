@@ -39,7 +39,7 @@ setup(name='gpseq_ce',
 	packages=find_packages(),
 	install_requires=['ggc>=0.0.2.post1', 'numpy>=1.14.2', 'pandas>=0.22.0',
 		'pybedtools>=0.7.10'],
-	scripts=['bin/gpseq_estimate_centrality'],
+	scripts=['bin/gpseqc_estimate'],
 	test_suite="nose.collector",
 	tests_require=["nose"],
 )
