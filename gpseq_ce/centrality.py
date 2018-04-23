@@ -53,10 +53,12 @@ def calc_pr(st, ci):
         float
     '''
     assert ci < st.shape[0], "requested condition (index) not found."
-    if ci == 0: return(calc_p(st, 0))
+    t = st.iloc[:(ci + 1), :]
+    if ci == 0:
+        return(calc_p(st, 0))
     else:
-        p = st.ix[:ci, "sum"].sum()
-        p /= np.sum(st.ix[:ci, "cond_nreads"].values * st.ix[:ci, "count"].values)
+        p = t.loc[:, "sum"].sum()
+        p /= np.sum(t.loc[:, "cond_nreads"].values * t.loc[:, "count"].values)
         return(p)
 
 def calc_var(st, ci):
@@ -70,7 +72,7 @@ def calc_var(st, ci):
         np.float64
     '''
     assert ci < st.shape[0], "requested condition (index) not found."
-    return(np.power(st.ix[ci, "std"], 2))
+    return(np.power(st["std"].values[ci], 2))
 
 def calc_ff(st, ci):
     '''Calculate Fano Factor.
@@ -83,7 +85,7 @@ def calc_ff(st, ci):
         np.float64
     '''
     assert ci < st.shape[0], "requested condition (index) not found."
-    return(np.power(st.ix[ci, "std"], 2) / st.ix[ci, "mean"])
+    return(np.power(st["std"].values[ci], 2) / st["mean"].values[ci])
 
 def calc_cv(st, ci):
     '''Calculate coefficient of variation
@@ -96,7 +98,7 @@ def calc_cv(st, ci):
         np.float64
     '''
     assert ci < st.shape[0], "requested condition (index) not found."
-    return(st.ix[ci, "std"] / st.ix[ci, "mean"])
+    return(st["std"].values[ci] / st["mean"].values[ci])
 
 def est_2p(st, f1, f2):
     '''Estimates centrality by combining conditions with two-points fashion.
@@ -229,20 +231,36 @@ def bin_estimate(df, mlist, progress = True):
     return(odf)
 
 def rank(cdf, mlist, progress = True, chrWide = False):
-    ''''''
-    if chrWide:
-        labels = [cdf["chrom"].values[i] for i in cdf.index]
-    else:
-        labels = ["%s:%s-%s" % tuple(cdf.ix[i, :].tolist()[:3])
+    '''Rank regions based on centrality estimates.
+
+    Args:
+        cdf (pd.DataFrame): estimates dataframe.
+        mlist (list): list of metrics to rank.
+        progress (bool): show progress bar.
+        chrWide (bool): use chromosomes as labels (no start/end position).
+
+    Returns:
+        pd.DataFrame:.
+    '''
+
+    for m in mlist:
+        assert m in cdf.columns, "missing column '%s' in  estimate table." % m
+
+    # Prepare region labels (no start/end if chromosome wide)
+    if chrWide: labels = [cdf["chrom"].values[i] for i in cdf.index]
+    else: labels = ["%s:%s-%s" % tuple(cdf.ix[i, :].tolist()[:3])
             for i in cdf.index]
     
+    # Prepare region generator, with progress bar if requested
     gen = (m for m in mlist if m in cdf.columns)
     if progress: gen = tqdm(gen, total = len(mlist))
 
+    # Rank and label regions
     odf = []
     for m in gen:
         odf.append([labels[i] for i in np.argsort(cdf[m].values)])
     
+    # Assemble ranks into a single DataFrame
     odf = pd.DataFrame(odf).transpose()
     odf.columns = [m for m in mlist if m in cdf.columns]
 

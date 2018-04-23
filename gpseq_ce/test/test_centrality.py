@@ -8,6 +8,7 @@
 
 # DEPENDENCIES =================================================================
 
+import numpy as np
 import pandas as pd
 
 from gpseq_ce import centrality as c
@@ -30,9 +31,10 @@ df2 = pd.DataFrame([
     ['chr10', 0, 135503768, 285805, 24.7022471910112, 20.041079768043, 11570, 6380685, 5],
     ['chr10', 0, 135503768, 332791, 28.681461690942, 22.5135593268717, 11603, 7348941, 6]
 ])
+df1.index = [0 for i in range(df1.shape[0])]
+df2.index = [1 for i in range(df2.shape[0])]
 df1.columns = ['chrom', 'start', 'end', 'sum', 'mean', 'std', 'count', 'cond_nreads', 'cond']
 df2.columns = ['chrom', 'start', 'end', 'sum', 'mean', 'std', 'count', 'cond_nreads', 'cond']
-
 
 # FUNCTIONS ====================================================================
 
@@ -54,32 +56,81 @@ def test_calcPR():
     assert c.calc_pr(df1, 0) == p1
     p2 = (102923 + 75860) / (1045062 * 17220 + 876501 * 17327)
     assert c.calc_pr(df1, 1) == p2
-    p3 = (580975 + 102923 + 75860) / (6625898 * 19927 + 1045062 * 17220 + 876501 * 17327)
+    p3 = (580975 + 102923 + 75860)
+    p3 /= (6625898 * 19927 + 1045062 * 17220 + 876501 * 17327)
     assert c.calc_pr(df1, 2) == p3
 
 def test_calcVar():
-    pass
+    v1 = np.power(46.5264380581169, 2)
+    assert c.calc_var(df1, 0) == v1
+    v2 = np.power(165.119679583602, 2)
+    assert c.calc_var(df1, 1) == v2
 
 def test_calcFF():
-    pass
+    v1 = np.power(46.5264380581169, 2) / 4.3781381658683
+    assert c.calc_ff(df1, 0) == v1
+    v2 = np.power(165.119679583602, 2) / 5.97694541231127
+    assert c.calc_ff(df1, 1) == v2
 
 def test_calcCV():
-    pass
+    v1 = 46.5264380581169 / 4.3781381658683
+    assert c.calc_cv(df1, 0) == v1
+    v2 = 165.119679583602 / 5.97694541231127
+    assert c.calc_cv(df1, 1) == v2
 
 def test_est2p():
-    pass
+    v = c.est_2p(df1, c.calc_p, lambda x, y: x / y)
+    assert v == c.calc_p(df1, -1) / c.calc_p(df1, 0)
 
 def test_estF():
-    pass
+    v = sum([c.calc_p(df1, i) / c.calc_p(df1, 0)
+        for i in range(1, df1.shape[0])])
+    assert c.est_f(df1, c.calc_p, lambda x, y: x / y) == v
 
 def test_estG():
-    pass
+    v = sum([c.calc_p(df1, i) / c.calc_p(df1, i - 1)
+        for i in range(1, df1.shape[0])])
+    assert c.est_g(df1, c.calc_p, lambda x, y: x / y) == v
 
 def test_binEstimate():
-    pass
+    est = c.bin_estimate(df1, ["prob_2p", "var_f", "roc_g"], False)
+
+    # prob_2p
+    p2p = (639962 / (7348941 * 19819)) / (75860 / (876501 * 17327))
+    assert p2p == est["prob_2p"].values[0]
+
+    # var_f
+    vf  = np.log(np.power(165.119679583602, 2) / np.power(46.5264380581169, 2))
+    vf += np.log(np.power(414.534732953575, 2) / np.power(46.5264380581169, 2))
+    vf += np.log(np.power(434.349758213242, 2) / np.power(46.5264380581169, 2))
+    vf += np.log(np.power(395.57305703688, 2) / np.power(46.5264380581169, 2))
+    vf += np.log(np.power(317.043533799097, 2) / np.power(46.5264380581169, 2))
+    assert vf == est["var_f"].values[0]
+
+    # roc_g
+    rg0 = df1['sum'].values[:1].sum() / (
+        df1['count'].values[:1] * df1['cond_nreads'].values[:1]).sum()
+    rg1 = df1['sum'].values[:2].sum() / (
+        df1['count'].values[:2] * df1['cond_nreads'].values[:2]).sum()
+    rg2 = df1['sum'].values[:3].sum() / (
+        df1['count'].values[:3] * df1['cond_nreads'].values[:3]).sum()
+    rg3 = df1['sum'].values[:4].sum() / (
+        df1['count'].values[:4] * df1['cond_nreads'].values[:4]).sum()
+    rg4 = df1['sum'].values[:5].sum() / (
+        df1['count'].values[:5] * df1['cond_nreads'].values[:5]).sum()
+    rg5 = df1['sum'].values[:6].sum() / (
+        df1['count'].values[:6] * df1['cond_nreads'].values[:6]).sum()
+    rg = rg1 / rg0 + rg2 / rg1 + rg3 / rg2 + rg4 / rg3 + rg5 / rg4
+    assert rg == est["roc_g"].values[0]
 
 def test_rank():
-    pass
+    est = c.bin_estimate(pd.concat([df1, df2]),
+        ["prob_2p", "var_f", "roc_g"], False)
+    rank = c.rank(est, ["prob_2p", "var_f", "roc_g"], False)
+    erank = ['chr1:0-249221236', 'chr10:0-135503768']
+    assert all(erank == rank['prob_2p'].values)
+    assert all(erank[::-1] == rank['var_f'].values)
+    assert all(erank[::-1] == rank['roc_g'].values)
 
 # END ==========================================================================
 
