@@ -7,8 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
-### ...
-- ...
+### Fixed
+- Empty bin issue during step 6 of `gpseqc_estimate`.
+- Division by zero in `centrality.py`.
 
 
 
