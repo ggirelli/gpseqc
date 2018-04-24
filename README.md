@@ -47,7 +47,7 @@ Lorem ipsum dolor sit amet, consectetur adipisicing elit. Libero quas ullam dele
 Contributing
 ---
 
-We welcome any contributions to `GPSeq_CE`. Please, refer to the [contribution guidelines](https://ggirelli.github.io/gpseqc/contributing) if this is your first time contributing! Also, check out our [code of conduct](https://ggirelli.github.io/gpseqc/code_of_conduct).
+We welcome any contributions to `GPSeqC`. Please, refer to the [contribution guidelines](https://ggirelli.github.io/gpseqc/contributing) if this is your first time contributing! Also, check out our [code of conduct](https://ggirelli.github.io/gpseqc/code_of_conduct).
 
 License
 ---
