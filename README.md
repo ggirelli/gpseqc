@@ -36,13 +36,13 @@ Usage
 
 #### Estimate centrality
 
-A visual schema of `gpseqc_estimate` workflow is available on [milkr](https://milkr.io/ggirelli/GPSeq-centrality-estimate).
-
-Lorem ipsum dolor sit amet, consectetur adipisicing elit. Sunt magnam, rerum praesentium ut error asperiores numquam architecto officia placeat. Repudiandae dolores pariatur quibusdam quia officia, quos ad in numquam suscipit.
+The `gpseqc_estimate` script allows to estimate regional nuclear centrality based on a multi-condition GPSeq experiment. Run `gpseqc_estimate -h` for more details.
 
 #### Compare centrality ranks
 
-Lorem ipsum dolor sit amet, consectetur adipisicing elit. Libero quas ullam delectus expedita, corporis, cumque quis. Dicta laboriosam reprehenderit adipisci ab nam, qui explicabo iste non, at dignissimos perferendis soluta.
+<s>The `gpseqc_compare` script allows to compare different regional centrality ranks. Run `gpseqc_estimate -h` for more details.</s>
+
+**NOTE: the `gpseqc_compare` script is not available yet. Please, use the old `gpseqc_compare_legacy` script instead (more info with `-h`).**
 
 Contributing
 ---
