@@ -5,7 +5,9 @@ A Python3 package that provides tools to estimate the 3D spatial nuclear central
 
 Read the (public) [documentation](https://ggirelli.github.io/gpseq_ce/) for more details.
 
-Read the (private) [documentation](https://github.com/ggirelli/gpseq_ce/wiki) for more details. Once the repository goes public, the private docs will be merged with the public ones.
+Read the (private) [documentation](https://github.com/ggirelli/gpseq_ce/wiki) for more details.
+
+<small>Once the repository goes public, the private docs will be merged with the public ones.</small>
 
 Installation
 ---
