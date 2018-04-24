@@ -1,4 +1,4 @@
 theme: jekyll-theme-cayman
-title: GPSeqC
-show_downloads: "true"
-
+title: "GPSeqC"
+show_downloads: "false"
+google_analytics: "UA-99031010-2"
