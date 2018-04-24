@@ -35,7 +35,7 @@
 # Description: estimate region centrality from GPSeq sequencing data.
 # 
 # Changelog:
-#   v2.0.0 - 20180424: first release as a python package.
+#   v2.0.0 - first release as a python package.
 # 
 # ------------------------------------------------------------------------------
 
@@ -127,7 +127,7 @@ Notes:
 # Positional parameters
 parser.add_argument('bedfile', type = str, nargs = '+',
 	help = """At least two (2) GPSeq condition bedfiles, in increasing order of
-restriction conditions intensity. Expected to be ordered per condition.""")
+restriction conditions intensity.""")
 
 # Optional parameters
 parser.add_argument('-o', '--output', type = str,
@@ -274,7 +274,7 @@ def print_settings(args, clear = True):
 		args (Namespace): arguments parsed by argparse.
 		clear (bool): clear screen before printing.
 	'''
-	s = " # GPSeqC - Centrality estimate\n\n"
+	s = " # GPSeq-centrality-estimate\n\n"
 
 	if type(None) != type(args.bin_bed):
 		s += " Bin be file: %s\n" % args.bin_bed
