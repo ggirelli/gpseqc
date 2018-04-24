@@ -454,7 +454,7 @@ if args.debug_mode:
 print("Assigning to bins...")
 
 def do_assign(i, bedfiles, bins, descr, args):
-	bedfiles[i] = bed.to_bins(bins, bedfiles[i])
+	bedfiles[i] = bed.to_bins(bins, bedfiles[i], skipEmpty = False)
 
 	# Save if debugging
 	if args.debug_mode: bed_saveas(bedfiles[i], "intersected.%s.%s.tsv" % (
