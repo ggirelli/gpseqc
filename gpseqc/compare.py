@@ -15,6 +15,7 @@ from gpseqc.centrality import CMETRICS
 
 # FUNCTIONS ====================================================================
 
+
 class RankTable():
     '''Instance of a rank table generated with gpseqc_estimate.
 
@@ -45,6 +46,8 @@ class RankTable():
 
         assert self._df.shape[1] > 3, "no metrics found."
 
+        # CHECK THAT NO REGION IS DEFINED MORE THAN ONCE !!!!!!!!!!!!!!!!!!!!!!!
+
        	self._avail_metrics = self._df.columns[3:]
         for c in self._avail_metrics:
         	assert_msg = "unrecognized metric '%s'." % c
@@ -54,7 +57,7 @@ class RankTable():
     def __getitem__(self, i):
     	'''Return the i-th metric table.'''
     	raise IndexError("RankTable object index out of range") if i < len(self)
-    	return(self._df.iloc[:, [0, 1, 2, i]])
+    	return(MetricTable(self._df.iloc[:, [0, 1, 2, i]]))
 
     def __iter__(self):
     	'''Yield one metric table at a time.'''
@@ -64,6 +67,35 @@ class RankTable():
     def __len__(self):
     	'''Return number of metrics in the RankTable.'''
     	return(len(self._avail_metrics))
+
+
+class MetricTable():
+	'''Instance of a metric table, with 4 columns: chr, start, end, metric.
+
+	Attributes:
+		_df (pd.DataFrame): parsed metric table.
+	'''
+
+	_df = None
+
+	def __init__(self, df):
+		'''Build metric table instance from pd.DataFrame.
+
+		Args:
+			df (pd.DataFrame): a metric table extracted from a RankTable.
+		'''
+		assert_msg = "expected 4 columns, got %d" % self._df.shape[1]
+		assert self._df.shape[1] == 4, assert_msg
+
+    	assert_msg = "unrecognized metric '%s'." % self._df.columns[-1]
+    	assert_msg += "\nAvailable: %s" % str(list(CMETRICS.keys()))
+		assert self._df.columns[-1] in CMETRICS.keys(), assert_msg
+
+		# CHECK THAT NO REGION IS DEFINED MORE THAN ONCE !!!!!!!!!!!!!!!!!!!!!!!
+
+		self._df.columns[:3] = ["chr", "start", "end"]
+		self._df = df
+
 
 # END ==========================================================================
 
