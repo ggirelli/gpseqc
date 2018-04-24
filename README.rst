@@ -6,7 +6,7 @@ A Python3 package that provides tools to estimate the 3D spatial nuclear central
 Read the [documentation](https://ggirelli.github.io/gpseq_ce/) for more details.
 
 Installation
--------------
+---
 
 To **install**, run the following:
 
@@ -30,7 +30,7 @@ sudo -H pip3 install .
 ```
 
 Usage
-----------
+---
 
 #### Estimate centrality
 
@@ -42,10 +42,15 @@ Lorem ipsum dolor sit amet, consectetur adipisicing elit. Sunt magnam, rerum pra
 
 Lorem ipsum dolor sit amet, consectetur adipisicing elit. Libero quas ullam delectus expedita, corporis, cumque quis. Dicta laboriosam reprehenderit adipisci ab nam, qui explicabo iste non, at dignissimos perferendis soluta.
 
+Contributing
+---
+
+We welcome any contributions to `GPSeq_CE`. Please, refer to the [contribution guidelines](https://github.com/ggirelli/gpseq_ce/blob/master/CONTRIBUTING.md) if this is your first time contributing! Also, check out our [code of conduct](https://github.com/ggirelli/gpseq_ce/blob/master/CODE_OF_CONDUCT.md).
+
 License
 ---
 
 ```
 MIT License
-Copyright (c) 2017 Gabriele Girelli
+Copyright (c) 2017-18 Gabriele Girelli
 ```
