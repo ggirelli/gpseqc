@@ -1,5 +1,5 @@
 ---
-title: GPSeqC Contributing Guidelines
+title: "GPSeqC Contributing Guidelines"
 ---
 
 # Contributing Guidelines
