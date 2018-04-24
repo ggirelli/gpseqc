@@ -161,6 +161,10 @@ def est_g(st, f1, f2):
         a = b
     return(out)
 
+def ratio(x, y):
+    if 0 == y: return(np.nan)
+    return(x / y)
+
 def logratio(x, y):
     if np.isnan(y) or np.isnan(x): return(np.nan)
     if y != 0 and x != 0: return(np.log(x / y))
@@ -240,27 +244,27 @@ def bin_estimate_single(i, df, mlist):
     for m in mlist:
         # Probability
         if m == "prob_2p": # two-points
-            orow[m] = est_2p(st, calc_p, lambda x, y: x / y)
+            orow[m] = est_2p(st, calc_p, ratio)
         elif m == "prob_f": # fixed
-            orow[m] = est_f(st, calc_p, lambda x, y: x / y)
+            orow[m] = est_f(st, calc_p, ratio)
         elif m == "prob_g": # global
-            orow[m] = est_g(st, calc_p, lambda x, y: x / y)
+            orow[m] = est_g(st, calc_p, ratio)
 
         # Cumulative ratio
         elif m == "cor_2p": # two-points
-            orow[m] = est_2p(st, calc_pc, lambda x, y: x / y)
+            orow[m] = est_2p(st, calc_pc, ratio)
         elif m == "cor_f": # fixed
-            orow[m] = est_f(st, calc_pc, lambda x, y: x / y)
+            orow[m] = est_f(st, calc_pc, ratio)
         elif m == "cor_g": # global
-            orow[m] = est_g(st, calc_pc, lambda x, y: x / y)
+            orow[m] = est_g(st, calc_pc, ratio)
 
         # Ratio of cumulative
         elif m == "roc_2p": # two-points
-            orow[m] = est_2p(st, calc_pr, lambda x, y: x / y)
+            orow[m] = est_2p(st, calc_pr, ratio)
         elif m == "roc_f": # fixed
-            orow[m] = est_f(st, calc_pr, lambda x, y: x / y)
+            orow[m] = est_f(st, calc_pr, ratio)
         elif m == "roc_g": # global
-            orow[m] = est_g(st, calc_pr, lambda x, y: x / y)
+            orow[m] = est_g(st, calc_pr, ratio)
 
         # Variance
         elif m == "var_2p": # two-points
