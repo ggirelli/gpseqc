@@ -5,8 +5,8 @@
 
 ### This issue affects
 
-- [ ] Centrality estimation
-- [ ] Ranks comparison
+- [ ] Centrality estimation (`gpseqc_estimate`)
+- [ ] Ranks comparison (`gpseqc_compare`)
 
 ### What did you do (e.g., steps to reproduce)
 

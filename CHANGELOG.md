@@ -12,9 +12,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 
-## [2.0.0] - ...
+## [2.0.0] - 180424
 ### Changed
 - Implemented as Python package `gpseqc`.
+- Rank comparison still available only as legacy version.
 - Documentation moved to [GitHub Pages](https://ggirelli.github.io/gpseq_ce/).
 
 
