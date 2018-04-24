@@ -72,23 +72,28 @@ Notes:
 """, formatter_class = argparse.RawDescriptionHelpFormatter)
 
 # Add mandatory arguments
-parser.add_argument('rank1', type = str, help = 'Path to first ranking table.')
-parser.add_argument('rank2', type = str, help = 'Path to second ranking table.')
+parser.add_argument('rank1', type = str,
+	help = '''Path to first ranking table ("estimated" table generated with
+	gpseqc_estimate).''')
+parser.add_argument('rank2', type = str,
+	help = '''Path to second ranking table ("estimated" table generated with
+	gpseqc_estimate).''')
 
 # Add arguments with default value
-parser.add_argument('-o', type = str, metavar = 'outdir', default = '.',
-	help = """Path to output directory, created if missing. Default: '.'""")
-parser.add_argument('-d', '--dist', type = str, metavar = 'distance',
-	help = """Wither 'kt' (Kendall tau) or 'ktw' (Kendall tau weighted).
+parser.add_argument('-o', '--outdir', type = str, metavar = 'outdir',
+	default = '.', help = """Path to output directory, created if missing.
+	Defaults to current directory.""")
+parser.add_argument('-d', '--dist', type = str, metavar = 'dist',
+	help = """Whether 'kt' (Kendall tau) or 'ktw' (Kendall tau weighted).
 	Default: 'ktw'""", choices = ['kt', 'ktw'], default = 'ktw')
-parser.add_argument('-i', type = int, metavar = 'niter', default = 5000,
-	help = """Number of iterations to build the random distribution.
-	Default: 5000""")
+parser.add_argument('-n', '--niter', type = int, metavar = 'niter',
+	default = 5000, help = """Number of iterations to build the random
+	distribution. Default: 5000""")
 parser.add_argument('-t', '--threads', type = int, metavar = "threads",
 	default = 1,
 	help = """Number of threads for parallelization. Default: 1""")
-parser.add_argument('-D', '--delim', type = str, metavar = 'delim', default = '\t',
-	help = """Ranking file field delimiter. Default: TAB""")
+parser.add_argument('-D', '--delim', type = str, metavar = 'delim',
+	help = """Ranking file field delimiter. Default: TAB""", default = '\t')
 parser.add_argument('-p', '--prefix', type = str, metavar = 'text',
 	default = '', help = """Text for output file name prefix.""")
 parser.add_argument('-s', '--suffix', type = str, metavar = 'text',
@@ -133,13 +138,29 @@ def print_settings(args, clear = True):
 	'''
 	s = " # GPSeqC - Ranking comparison\n\n"
 
+	s += " 1st rank : %s\n" % args.rank1
+	s += " 2nd rank : %s\n" % args.rank2
 
+	s += "\n Distance : %s\n" % args.dist
+	s += "    nIter : %d\n" % args.niter
+	s += "  Threads : %d\n" % args.threads
+
+	s += "\n    Delim : '%s'\n" % args.delim
+	if 0 != len(args.prefix): s += "   Prefix : '%s'\n" % args.prefix
+	if 0 != len(args.suffix): s += "   Suffix : '%s'\n" % args.suffix
 
 	if clear: print("\033[H\033[J%s" % s)
 	else: print(s)
 	return(s)
 
 # RUN ==========================================================================
+
+ssettings = print_settings(args)
+ask("Confirm settings and proceed?")
+
+# Save confirmed settings
+with open(os.path.join(args.outdir, "%ssettings%s.txt" % (
+	args.prefix, args.suffix)), "w+") as OH: OH.write(ssettings)
 
 # End --------------------------------------------------------------------------
 
