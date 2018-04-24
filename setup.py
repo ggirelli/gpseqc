@@ -16,11 +16,11 @@ here = os.path.abspath(os.path.dirname(__file__))
 bindir = os.path.join(here, "bin/")
 
 # Get the long description from the README file
-with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
+with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
 	long_description = f.read()
 
 setup(name='gpseqc',
-	version='2.0.0',
+	version='2.0.1',
 	description='GPSeq-based centrality estimation.',
 	long_description=long_description,
 	long_description_content_type='text/markdown',
