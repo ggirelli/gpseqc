@@ -1,5 +1,5 @@
 ---
-title: GPSeq_CE Code of Conduct
+title: GPSeqC Code of Conduct
 ---
 
 # Code of Conduct
