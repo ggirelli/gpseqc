@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import pybedtools as pbt
 
-from gpseq_ce import cutsite_domain as csd
+from gpseqc import cutsite_domain as csd
 
 # PARAMS =======================================================================
 

@@ -11,7 +11,7 @@
 import numpy as np
 import pandas as pd
 
-from gpseq_ce import centrality as c
+from gpseqc import centrality as c
 
 # PARAMS =======================================================================
 

@@ -11,7 +11,7 @@
 import os
 import pybedtools as pbt
 
-from gpseq_ce import bed
+from gpseqc import bed
 
 # FUNCTIONS ====================================================================
 
