@@ -1,4 +1,6 @@
-# GPSeq_CE Code of Conduct
+---
+title: GPSeq_CE Code of Conduct
+---
 
 ## Our Pledge
 

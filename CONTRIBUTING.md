@@ -1,3 +1,7 @@
+---
+title: GPSeq_CE Contributing Guidelines
+---
+
 # Introduction
 
 Hi there, thank you for considering contributing to `GPSeq_CE` to help us make our code a better version of itself!
