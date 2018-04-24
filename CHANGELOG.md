@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
+### ...
+- ...
+
+
+
+## [2.0.0] - ...
 ### Changed
 - Implemented as Python package `gpseqc`.
+- Documentation moved to [GitHub Pages](https://ggirelli.github.io/gpseq_ce/).
 
 
 
@@ -56,9 +63,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 
-[Unreleased] https://github.com/ggirelli/gpseq-centrality-estimate
-[1.2.2] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v1.2.2
-[1.2.1] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v1.2.1
-[1.2.0] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v1.2.0
-[1.1.0] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v1.1.0
-[1.0.0] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v1.0.0
+[Unreleased] https://github.com/ggirelli/gpseq-centrality-estimate  
+[2.0.0] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.0  
+[1.2.2] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v1.2.2  
+[1.2.1] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v1.2.1  
+[1.2.0] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v1.2.0  
+[1.1.0] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v1.1.0  
+[1.0.0] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v1.0.0  
