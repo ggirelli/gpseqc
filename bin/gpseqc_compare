@@ -44,13 +44,55 @@
 # DEPENDENCIES =================================================================
 
 import argparse
+import os
 import sys
+
+from ggc.args import check_threads
+from ggc.prompt import ask
 
 # PARAMETERS ===================================================================
 
 parser = argparse.ArgumentParser(description = """
-Centrality ranking comparison.
+Description:
+ Centrality ranking comparison: calculate distance between centrality
+ rankings.
+ 
+ Please, note that the comparison is performed only on the intersection of
+ the two rankings. If they do not intersect, an error message is displayed.
+
+Notes:
+
+ # Distance --------------------------------------------------------------------
+
+  The Kendall tau (kt) distance ...
+
+  The Kendall tau weighted (ktw) distance ...
+
+ # -----------------------------------------------------------------------------
 """, formatter_class = argparse.RawDescriptionHelpFormatter)
+
+# Add mandatory arguments
+parser.add_argument('rank1', type = str, help = 'Path to first ranking table.')
+parser.add_argument('rank2', type = str, help = 'Path to second ranking table.')
+
+# Add arguments with default value
+parser.add_argument('-o', type = str, metavar = 'outdir', default = '.',
+	help = """Path to output directory, created if missing. Default: '.'""")
+parser.add_argument('-d', '--dist', type = str, metavar = 'distance',
+	help = """Wither 'kt' (Kendall tau) or 'ktw' (Kendall tau weighted).
+	Default: 'ktw'""", choices = ['kt', 'ktw'], default = 'ktw')
+parser.add_argument('-i', type = int, metavar = 'niter', default = 5000,
+	help = """Number of iterations to build the random distribution.
+	Default: 5000""")
+parser.add_argument('-t', '--threads', type = int, metavar = "threads",
+	default = 1,
+	help = """Number of threads for parallelization. Default: 1""")
+parser.add_argument('-s', type = str, metavar = 'delim', default = '\t',
+	help = """Ranking file field delimiter. Default: TAB""")
+parser.add_argument('-p', '--prefix', type = str, metavar = 'text',
+	default = '', help = """Text for output file name prefix.""")
+parser.add_argument('-s', '--suffix', type = str, metavar = 'text',
+	default = '', help = """Text for output file name suffix.""")
 
 # Version flag
 version = "2.0.0"
@@ -62,7 +104,40 @@ args = parser.parse_args()
 
 # Check input ------------------------------------------------------------------
 
+args.threads = check_threads(args.threads)
+
+assert os.path.isfile(args.rank1), "file not found: %s" % args.rank1
+assert os.path.isfile(args.rank2), "file not found: %s" % args.rank2
+
+assert_msg = "file expected, folder found: %s" % args.outdir
+assert not os.path.isfile(args.outdir), assert_msg
+
+assert args.niter >= 1, "at least 1 iteration required, got %d" % args.niter
+
+if not os.path.isdir(args.outdir): os.mkdir(args.outdir)
+
+# Adjust prefix/suffix if needed
+if 0 != len(args.prefix):
+	if '.' != args.prefix[-1]: args.prefix += '.'
+if 0 != len(args.suffix):
+	if '.' != args.suffix[0]: args.suffix = '.' + args.suffix
+
 # FUNCTION =====================================================================
+
+def print_settings(args, clear = True):
+	'''Show input settings, for confirmation.
+
+	Args:
+		args (Namespace): arguments parsed by argparse.
+		clear (bool): clear screen before printing.
+	'''
+	s = " # GPSeqC - Ranking comparison\n\n"
+
+
+
+	if clear: print("\033[H\033[J%s" % s)
+	else: print(s)
+	return(s)
 
 # RUN ==========================================================================
 
