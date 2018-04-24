@@ -8,7 +8,7 @@
 
 # DEPENDENCIES =================================================================
 
-from gpseq_ce import bed, centrality, cutsite_domain
+from gpseqc import bed, centrality, cutsite_domain
 
 # END ==========================================================================
 
