@@ -12,7 +12,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 
-## [2.0.0] - 180424
+## [2.0.1] - 2018-04-24
+### Added
+- Error triggered when empty bed files are provided to `gpseqc_estimate`.
+
+
+
+## [2.0.0] - 2018-04-24
 ### Changed
 - Implemented as Python package `gpseqc`.
 - Rank comparison still available only as legacy version.
