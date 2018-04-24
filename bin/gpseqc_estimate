@@ -35,7 +35,8 @@
 # Description: estimate region centrality from GPSeq sequencing data.
 # 
 # Changelog:
-#   v2.0.0 - first release as a python package.
+#   v2.0.1 - 20180424: added no-empty input bedfile assert.
+#   v2.0.0 - 20180424: first release as a python package.
 # 
 # ------------------------------------------------------------------------------
 
@@ -185,7 +186,7 @@ parser.add_argument('-n', '--normalize', action = 'store_const',
 	const = True, default = False)
 
 # Version flag
-version = "2.0.0"
+version = "2.0.1"
 parser.add_argument('--version', action = 'version',
 	version = '%s v%s' % (sys.argv[0], version,))
 
@@ -355,6 +356,9 @@ print("Parsing bedfiles and counting reads...")
 
 bedfiles = [pbt.BedTool(b) for b in args.bedfile]
 conds_nreads = [len(b) for b in bedfiles]
+
+for i in range(len(conds_nreads)):
+	assert 0 != conds_nreads[i], "empty bedfile found: %s" % args.bedfile[i]
 
 # (1) Identify & sort chromosomes ----------------------------------------------
 print("Identifying chromosomes...")
