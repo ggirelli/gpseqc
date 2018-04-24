@@ -1,4 +1,4 @@
-# GPSeq_CE Code of Conduct
+# GPSeqC Code of Conduct
 
 ## Our Pledge
 

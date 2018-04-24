@@ -13,7 +13,7 @@ import os
 import pandas as pd
 import pybedtools as pbt
 
-from gpseq_ce import bed
+from gpseqc import bed
 
 # PARAMS =======================================================================
 

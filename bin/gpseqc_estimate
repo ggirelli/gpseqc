@@ -55,7 +55,7 @@ from tqdm import tqdm
 
 from ggc.prompt import ask
 from ggc.args import check_threads
-from gpseq_ce import bed, centrality, cutsite_domain
+from gpseqc import bed, centrality, cutsite_domain
 
 # PARAMETERS ===================================================================
 

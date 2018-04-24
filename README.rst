@@ -1,10 +1,10 @@
-gpseq_ce v2.0.0
+gpseqc v2.0.0
 ===
 
 A Python3 package that provides tools to estimate the 3D spatial nuclear centrality of genomic regions and compare different centrality rankings.
 
-* Read the (public) [documentation](https://ggirelli.github.io/gpseq_ce/) for more details.
-* Read the (private) [documentation](https://github.com/ggirelli/gpseq_ce/wiki) for more details.  
+* Read the (public) [documentation](https://ggirelli.github.io/gpseqc/) for more details.
+* Read the (private) [documentation](https://github.com/ggirelli/gpseqc/wiki) for more details.  
 *Once the repo goes public, private docs will be merged with public ones.*
 
 Installation
@@ -13,15 +13,15 @@ Installation
 To **install**, run the following:
 
 ```
-git clone http://github.com/ggirelli/gpseq_ce
-cd gpseq_ce
+git clone http://github.com/ggirelli/gpseqc
+cd gpseqc
 sudo -H pip3 install .
 ```
 
 To **uninstall** run the following from within the repository folder:
 
 ```
-sudo -H pip3 uninstall gpseq_ce
+sudo -H pip3 uninstall gpseqc
 ```
 
 To **update**, first uninstall, and then run the following from within the repository folder.
@@ -47,7 +47,7 @@ Lorem ipsum dolor sit amet, consectetur adipisicing elit. Libero quas ullam dele
 Contributing
 ---
 
-We welcome any contributions to `GPSeq_CE`. Please, refer to the [contribution guidelines](https://ggirelli.github.io/gpseq_ce/contributing) if this is your first time contributing! Also, check out our [code of conduct](https://ggirelli.github.io/gpseq_ce/code_of_conduct).
+We welcome any contributions to `GPSeq_CE`. Please, refer to the [contribution guidelines](https://ggirelli.github.io/gpseqc/contributing) if this is your first time contributing! Also, check out our [code of conduct](https://ggirelli.github.io/gpseqc/code_of_conduct).
 
 License
 ---
