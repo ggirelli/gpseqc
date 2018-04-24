@@ -87,7 +87,7 @@ parser.add_argument('-i', type = int, metavar = 'niter', default = 5000,
 parser.add_argument('-t', '--threads', type = int, metavar = "threads",
 	default = 1,
 	help = """Number of threads for parallelization. Default: 1""")
-parser.add_argument('-s', type = str, metavar = 'delim', default = '\t',
+parser.add_argument('-D', '--delim', type = str, metavar = 'delim', default = '\t',
 	help = """Ranking file field delimiter. Default: TAB""")
 parser.add_argument('-p', '--prefix', type = str, metavar = 'text',
 	default = '', help = """Text for output file name prefix.""")
