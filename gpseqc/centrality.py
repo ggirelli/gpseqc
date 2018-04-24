@@ -15,6 +15,27 @@ from tqdm import tqdm
 
 from ggc.args import check_threads
 
+# CONSTANTS ====================================================================
+
+# Metric types and corresponding function for single-bin calculation
+CMETRICS = {
+    'prob_2p' : lambda st: est_2p(st, calc_p, ratio),
+    'prob_f'  : lambda st: est_f(st, calc_p, ratio),
+    'prob_g'  : lambda st: est_g(st, calc_p, ratio),
+    'cor_2p'  : lambda st: est_2p(st, calc_pc, ratio),
+    'cor_f'   : lambda st: est_f(st, calc_pc, ratio),
+    'cor_g'   : lambda st: est_g(st, calc_pc, ratio),
+    'roc_2p'  : lambda st: est_2p(st, calc_pr, ratio),
+    'roc_f'   : lambda st: est_f(st, calc_pr, ratio),
+    'roc_g'   : lambda st: est_g(st, calc_pr, ratio),
+    'var_2p'  : lambda st: est_2p(st, calc_var, logratio),
+    'var_f'   : lambda st: est_f(st, calc_var, logratio),
+    'ff_2p'   : lambda st: est_2p(st, calc_ff, lambda x, y: x - y),
+    'ff_f'    : lambda st: est_f(st, calc_ff, lambda x, y: x - y),
+    'cv_2p'   : lambda st: est_2p(st, calc_cv, lambda x, y: x - y),
+    'cv_f'    : lambda st: est_f(st, calc_cv, lambda x, y: x - y)
+}
+
 # FUNCTIONS ====================================================================
 
 def calc_p(st, ci):
@@ -242,47 +263,10 @@ def bin_estimate_single(i, df, mlist):
 
     # Calculate requested metrics
     for m in mlist:
-        # Probability
-        if m == "prob_2p": # two-points
-            orow[m] = est_2p(st, calc_p, ratio)
-        elif m == "prob_f": # fixed
-            orow[m] = est_f(st, calc_p, ratio)
-        elif m == "prob_g": # global
-            orow[m] = est_g(st, calc_p, ratio)
-
-        # Cumulative ratio
-        elif m == "cor_2p": # two-points
-            orow[m] = est_2p(st, calc_pc, ratio)
-        elif m == "cor_f": # fixed
-            orow[m] = est_f(st, calc_pc, ratio)
-        elif m == "cor_g": # global
-            orow[m] = est_g(st, calc_pc, ratio)
-
-        # Ratio of cumulative
-        elif m == "roc_2p": # two-points
-            orow[m] = est_2p(st, calc_pr, ratio)
-        elif m == "roc_f": # fixed
-            orow[m] = est_f(st, calc_pr, ratio)
-        elif m == "roc_g": # global
-            orow[m] = est_g(st, calc_pr, ratio)
-
-        # Variance
-        elif m == "var_2p": # two-points
-            orow[m] = est_2p(st, calc_var, logratio)
-        elif m == "var_f": # fixed
-            orow[m] = est_f(st, calc_var, logratio)
-
-        # Fano factor
-        elif m == "ff_2p": # two-points
-            orow[m] = est_2p(st, calc_ff, lambda x, y: x - y)
-        elif m == "ff_f": # fixed
-            orow[m] = est_f(st, calc_ff, lambda x, y: x - y)
-
-        # Coefficient of variation
-        elif m == "cv_2p": # two-points
-            orow[m] = est_2p(st, calc_cv, lambda x, y: x - y)
-        elif m == "cv_f": # fixed
-            orow[m] = est_f(st, calc_cv, lambda x, y: x - y)
+        assert_msg = "unrecognized metric '%s'." % m
+        assert_msg += "\nAvailable: %s" % str(list(CMETRICS.keys()))
+        assert m in CMETRICS.keys(), assert_msg
+        orow[m] = CMETRICS[m](st)
 
     return(orow)
 
