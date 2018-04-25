@@ -173,11 +173,9 @@ with open(os.path.join(args.outdir, "%ssettings%s.txt" % (
 r1 = RankTable(args.rank1)
 r2 = RankTable(args.rank2)
 
-print(len(r1))
-print(len(r1.all_regions()))
-print(list(r1.available_metrics()))
-for mt in r1:
-	print((len(mt), mt.metric))
+# Make intersection
+r1 = r1.intersection(r2)
+r2 = r2.intersection(r1)
 
 # End --------------------------------------------------------------------------
 

@@ -16,18 +16,18 @@ from gpseqc.centrality import CMETRICS
 # FUNCTIONS ====================================================================
 
 
-class RankTable():
+class RankTable(object):
     '''Instance of a rank table generated with gpseqc_estimate.
 
     Attributes:
       _df (pdf.DataFrame): parsed rank table.
-      avail_metrics (list): metrics available in the rank table.
+      _avail_metrics (list): metrics available in the rank table.
     '''
 
     _df = None
     _avail_metrics = []
 
-    def __init__(self, ipath, sep = "\t"):
+    def __init__(self, ipath = None, sep = "\t", df = None):
         '''Read and parse rank table file.
 
         Args:
@@ -35,10 +35,18 @@ class RankTable():
             sep (str): field delimiter.
         '''
 
-        assert os.path.isfile(ipath), "file not found: %s" % ipath
+        if type(None) != type(ipath):
+            assert os.path.isfile(ipath), "file not found: %s" % ipath
 
-        # Read file
-        self._df = pd.read_csv(ipath, sep, header = 0)
+            # Read file
+            self._sep = sep
+            self._path = ipath
+            self._df = pd.read_csv(ipath, sep, header = 0)
+        elif type(None) != type(df):
+            self._df = df
+        else:
+            assert_msg = "ipath or df are required to construct a RankTable"
+            raise AssertError(assert_msg)
 
         req_cols = ["chrom", "start", "end"]
         for c in req_cols:
@@ -80,7 +88,7 @@ class RankTable():
         for am in self._avail_metrics:
             yield am
 
-    def regions(self):
+    def iter_regions(self):
         '''Yields regions.'''
         for r in self._all_regions():
             yield r
@@ -92,6 +100,29 @@ class RankTable():
             self._df.iloc[:, 1],
             self._df.iloc[:, 2]
         )))
+
+    def __and__(self, b):
+        """Return the intersection of two RankTables as a new RankTable.
+        i.e. all region intervals that are in both RankTables with the rankings
+        from the first (self)."""
+
+        # Identify intersection
+        iset = set(self.iter_regions()).intersection(set(b.iter_regions()))
+        if 0 == len(iset): return(None)
+
+        # Copy current dataframe and subset it
+        df = self._df.copy()
+        for i in range(self._df.shape[0]):
+            if tuple(self._df.iloc[i, :].tolist()[:3]) not in iset:
+                df.drop(i)
+
+        return(RankTable(df = df))
+
+    def intersection(self, b):
+        '''Return the intersection of two RankTables as a new RankTable.
+        i.e. all region intervals that are in both RankTables with the rankings
+        from the first (self). Same as self & b.'''
+        return(self & b)
 
 
 class MetricTable():
@@ -152,6 +183,11 @@ class MetricTable():
     def metric(self):
         return self._metric
 
+    def iter_regions(self):
+        '''Yields regions.'''
+        for r in self._all_regions():
+            yield r
+
     def _all_regions(self):
         '''Return the list of region intervals.'''
         return(list(zip(
@@ -159,6 +195,30 @@ class MetricTable():
             self._df.iloc[:, 1],
             self._df.iloc[:, 2]
         )))
+
+    def __and__(self, b):
+        """Return the intersection of two MetricTables as a new MetricTable.
+        i.e. all region intervals that are in both MetricTables with the
+        rankings from the first (self)."""
+
+        # Identify intersection
+        iset = set(self.iter_regions()).intersection(set(b.iter_regions()))
+        if 0 == len(iset): return(None)
+
+        # Copy current dataframe and subset it
+        df = self._df.copy()
+        for i in range(self._df.shape[0]):
+            if tuple(self._df.iloc[i, :].tolist()[:3]) not in iset:
+                df.drop(i)
+
+        return(MetricTable(df = df))
+
+    def intersection(self, b):
+        '''Return the intersection of two MetricTables as a new MetricTable.
+        i.e. all region intervals that are in both MetricTables with the
+        rankings from the first (self). Same as self & b.'''
+        return(self & b)
+
 
 
 # END ==========================================================================
