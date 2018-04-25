@@ -50,6 +50,8 @@ import sys
 from ggc.args import check_threads
 from ggc.prompt import ask
 
+from gpseqc.compare import RankTable, MetricTable
+
 # PARAMETERS ===================================================================
 
 parser = argparse.ArgumentParser(description = """
@@ -98,6 +100,11 @@ parser.add_argument('-p', '--prefix', type = str, metavar = 'text',
 	default = '', help = """Text for output file name prefix.""")
 parser.add_argument('-s', '--suffix', type = str, metavar = 'text',
 	default = '', help = """Text for output file name suffix.""")
+
+# Flags
+parser.add_argument('-y', '--do-all', action = 'store_const',
+	help = """Do not ask for settings confirmation and proceed.""",
+	const = True, default = False)
 
 # Version flag
 version = "2.0.0"
@@ -156,11 +163,21 @@ def print_settings(args, clear = True):
 # RUN ==========================================================================
 
 ssettings = print_settings(args)
-ask("Confirm settings and proceed?")
+if not args.do_all: ask("Confirm settings and proceed?")
 
 # Save confirmed settings
 with open(os.path.join(args.outdir, "%ssettings%s.txt" % (
 	args.prefix, args.suffix)), "w+") as OH: OH.write(ssettings)
+
+# Read ranking tables
+r1 = RankTable(args.rank1)
+r2 = RankTable(args.rank2)
+
+print(len(r1))
+print(len(r1.all_regions()))
+print(list(r1.available_metrics()))
+for mt in r1:
+	print((len(mt), mt.metric))
 
 # End --------------------------------------------------------------------------
 

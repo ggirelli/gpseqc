@@ -31,70 +31,134 @@ class RankTable():
         '''Read and parse rank table file.
 
         Args:
-        	ipath (str): path to rank table file.
-        	sep (str): field delimiter.
+            ipath (str): path to rank table file.
+            sep (str): field delimiter.
         '''
 
         assert os.path.isfile(ipath), "file not found: %s" % ipath
 
         # Read file
-        self._df = pd.read_csv(ipath, sep, header = True)
+        self._df = pd.read_csv(ipath, sep, header = 0)
 
-        req_cols = ["chr", "start", "end"]
+        req_cols = ["chrom", "start", "end"]
         for c in req_cols:
-        	assert c in self._df.columns, "missing column: '%s'" % c
+            assert c in self._df.columns, "missing column: '%s'" % c
 
-        assert self._df.shape[1] > 3, "no metrics found."
+        assert self._df.shape[1] > 3, "no metrics found"
+        assert self._df.shape[0] > 0, "empty rank table"
 
-        # CHECK THAT NO REGION IS DEFINED MORE THAN ONCE !!!!!!!!!!!!!!!!!!!!!!!
+        assert_msg = "found duplicate regions"
+        assert len(set(self._all_regions())) == self._df.shape[0], assert_msg
 
-       	self._avail_metrics = self._df.columns[3:]
+        self._avail_metrics = self._df.columns[3:]
         for c in self._avail_metrics:
-        	assert_msg = "unrecognized metric '%s'." % c
-        	assert_msg += "\nAvailable: %s" % str(list(CMETRICS.keys()))
-        	assert c in CMETRICS.keys(), assert_msg
+            assert_msg = "unrecognized metric '%s'" % c
+            assert_msg += "\nAvailable: %s" % str(list(CMETRICS.keys()))
+            assert c in CMETRICS.keys(), assert_msg
 
     def __getitem__(self, i):
-    	'''Return the i-th metric table.'''
-    	raise IndexError("RankTable object index out of range") if i < len(self)
-    	return(MetricTable(self._df.iloc[:, [0, 1, 2, i]]))
+        '''Return the i-th metric table.'''
+        if i >= len(self):
+            raise IndexError("RankTable object index out of range")
+        return MetricTable(self._df.iloc[:, [0, 1, 2, i + 3]])
 
     def __iter__(self):
-    	'''Yield one metric table at a time.'''
-    	for i in range(len(self)):
-    		yield self[i]
+        '''Yield one metric table at a time.'''
+        for i in range(len(self)):
+            yield self[i]
 
     def __len__(self):
-    	'''Return number of metrics in the RankTable.'''
-    	return(len(self._avail_metrics))
+        '''Return number of metrics in the RankTable.'''
+        return len(self._avail_metrics)
+
+    def __str__(self):
+        '''String representation.'''
+        return(self._df.to_string())
+
+    def available_metrics(self):
+        '''Yields available metrics.'''
+        for am in self._avail_metrics:
+            yield am
+
+    def regions(self):
+        '''Yields regions.'''
+        for r in self._all_regions():
+            yield r
+
+    def _all_regions(self):
+        '''Return the list of region intervals.'''
+        return(list(zip(
+            self._df.iloc[:, 0],
+            self._df.iloc[:, 1],
+            self._df.iloc[:, 2]
+        )))
 
 
 class MetricTable():
-	'''Instance of a metric table, with 4 columns: chr, start, end, metric.
+    '''Instance of a metric table, with 4 columns: chr, start, end, metric.
 
-	Attributes:
-		_df (pd.DataFrame): parsed metric table.
-	'''
+    Attributes:
+        _df (pd.DataFrame): parsed metric table.
+        _metric (str): label of the metric in the table.
+    '''
 
-	_df = None
+    _df = None
+    _metric = None
 
-	def __init__(self, df):
-		'''Build metric table instance from pd.DataFrame.
+    def __init__(self, df):
+        '''Build metric table instance from pd.DataFrame.
 
-		Args:
-			df (pd.DataFrame): a metric table extracted from a RankTable.
-		'''
-		assert_msg = "expected 4 columns, got %d" % self._df.shape[1]
-		assert self._df.shape[1] == 4, assert_msg
+        Args:
+            df (pd.DataFrame): a metric table extracted from a RankTable.
+        '''
+        
+        self._df = df
+        self._df.columns.values[:3] = ["chrom", "start", "end"]
+        self._metric = self._df.columns[3]
 
-    	assert_msg = "unrecognized metric '%s'." % self._df.columns[-1]
-    	assert_msg += "\nAvailable: %s" % str(list(CMETRICS.keys()))
-		assert self._df.columns[-1] in CMETRICS.keys(), assert_msg
+        assert_msg = "expected 4 columns, got %d" % self._df.shape[1]
+        assert self._df.shape[1] == 4, assert_msg
 
-		# CHECK THAT NO REGION IS DEFINED MORE THAN ONCE !!!!!!!!!!!!!!!!!!!!!!!
+        assert self._df.shape[0] > 0, "empty metric table"
 
-		self._df.columns[:3] = ["chr", "start", "end"]
-		self._df = df
+        assert_msg = "unrecognized metric '%s'" % self._df.columns[-1]
+        assert_msg += "\nAvailable: %s" % str(list(CMETRICS.keys()))
+        assert self._df.columns[-1] in CMETRICS.keys(), assert_msg
+
+        assert_msg = "found duplicate regions"
+        assert len(set(zip(self._df.iloc[:, 0], self._df.iloc[:, 1],
+            self._df.iloc[:, 2]))) == self._df.shape[0], assert_msg
+
+    def __getitem__(self, i):
+        '''Return the i-th region.'''
+        if i >= len(self):
+            raise IndexError("MetricTable object index out of range")
+        return self._df.iloc[i, :]
+
+    def __iter__(self):
+        '''Yield one region at a time.'''
+        for i in range(len(self)):
+            yield self[i]
+
+    def __len__(self):
+        '''Return number of regions in MetricTable.'''
+        return self._df.shape[0]
+
+    def __str__(self):
+        '''String representation.'''
+        return(self._df.to_string())
+
+    @property
+    def metric(self):
+        return self._metric
+
+    def _all_regions(self):
+        '''Return the list of region intervals.'''
+        return(list(zip(
+            self._df.iloc[:, 0],
+            self._df.iloc[:, 1],
+            self._df.iloc[:, 2]
+        )))
 
 
 # END ==========================================================================
