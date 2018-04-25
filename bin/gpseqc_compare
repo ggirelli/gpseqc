@@ -170,12 +170,18 @@ with open(os.path.join(args.outdir, "%ssettings%s.txt" % (
 	args.prefix, args.suffix)), "w+") as OH: OH.write(ssettings)
 
 # Read ranking tables
+print("Reading and parsing rank tables...")
 r1 = RankTable(args.rank1)
 r2 = RankTable(args.rank2)
 
 # Make intersection
+print("Subsetting rank tables...")
 r1 = r1.intersection(r2)
 r2 = r2.intersection(r1)
+
+# 
+print("Testing Kendall tau distance...")
+print(r1[0].KendallTau(r1[1]))
 
 # End --------------------------------------------------------------------------
 
