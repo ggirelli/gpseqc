@@ -80,7 +80,7 @@ class RankTable(object):
 
     def __str__(self):
         '''String representation.'''
-        return(self._df.to_string())
+        return self._df.to_string()
 
     def available_metrics(self):
         '''Yields available metrics.'''
@@ -121,13 +121,14 @@ class RankTable(object):
         df.index = range(df.shape[0])
         del regs
 
-        return(RankTable(df = df))
+        return RankTable(df = df)
 
     def intersection(self, b):
         '''Return the intersection of two RankTables as a new RankTable.
         i.e. all region intervals that are in both RankTables with the rankings
         from the first (self). Same as self & b.'''
-        return(self & b)
+        return self & b
+
 
 class MetricTable():
     '''Instance of a metric table, with 4 columns: chr, start, end, metric.
@@ -192,7 +193,7 @@ class MetricTable():
 
     def __str__(self):
         '''String representation.'''
-        return(self._df.to_string())
+        return self._df.to_string()
 
     @property
     def metric(self):
@@ -236,13 +237,13 @@ class MetricTable():
         df.index = range(df.shape[0])
         del regs
 
-        return(MetricTable(df = df))
+        return MetricTable(df = df)
 
     def intersection(self, b):
         '''Return the intersection of two MetricTables as a new MetricTable.
         i.e. all region intervals that are in both MetricTables with the
         rankings from the first (self). Same as self & b.'''
-        return(self & b)
+        return self & b
 
     @profile
     def KendallTau(self, b, skipSubset = False):
