@@ -11,6 +11,7 @@
 import numpy as np
 import os
 import pandas as pd
+from tqdm import tqdm
 
 from memory_profiler import profile
 
@@ -178,9 +179,12 @@ class MetricTable():
         
     def __getitem__(self, i):
         '''Return the i-th region.'''
-        if i >= len(self):
-            raise IndexError("MetricTable object index out of range")
-        return self._df.iloc[i, :]
+        if type(0) == type(i):
+            if i >= len(self):
+                raise IndexError("MetricTable object index out of range")
+            return self._df.iloc[i, :]
+        elif type(slice(0)) == type(i):
+            return(self._df.iloc[i, :])
 
     def __iter__(self):
         '''Yield one region at a time.'''
@@ -265,10 +269,9 @@ class MetricTable():
             np.array([a._all_regions().index(x) 
                 for x in b.iter_regions()])], dtype = "i").transpose()
         print(2)
-        print(idx.shape)
 
         # Identify all possible couples
-        exg = np.array([(x, y) for x in idx[:,0] for y in idx[:,0]])
+        exg = np.array([(x, y) for x in tqdm(idx[:,0]) for y in idx[:,0]])
         print(3)
 
         # Calculate number of discordant orders
@@ -277,6 +280,18 @@ class MetricTable():
         n += (np.array(idx[exg[:,0],1]) > np.array(idx[exg[:,1],1])).astype('i')
         print(5)
         n = sum(n == 1) / 2.
+
+        print(n)
+
+        n2 = 0
+        bset = set()
+        regs = self._all_regions()
+        for i in tqdm(range(len(b))):
+            breg = tuple(b[i].iloc[:3].tolist())
+            bset.add(breg)
+            aset = set(regs[:regs.index(breg)])
+            n2 += len(aset) + len(bset) - 2  * len(bset.intersection(aset))
+        print(n2)
 
         # Normalize
         d = n / (len(a) * (len(a) - 1) / 2.)
