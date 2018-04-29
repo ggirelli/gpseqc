@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - `-y` option now working in `gpseqc_estimate`.
 
+### Added
+- Added timestamp, command line and version tag to `gpseqc_estimate` settings file for easier bug reporting and debugging.
+
 
 
 ## [2.0.2] - 2018-04-24

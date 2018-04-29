@@ -35,6 +35,8 @@
 # Description: estimate region centrality from GPSeq sequencing data.
 # 
 # Changelog:
+#   v2.0.4 - 20180429: added command line, timestamp and version tag
+#   				   to settings file.
 #   v2.0.3 - 20180425: fixed -y option.
 #   v2.0.2 - 20180424: fixed empty bins issue during step (6).
 #   v2.0.1 - 20180424: added no-empty input bedfile assert.
@@ -47,6 +49,7 @@
 # DEPENDENCIES =================================================================
 
 import argparse
+import datetime
 from joblib import delayed, Parallel
 import os
 import numpy as np
@@ -199,6 +202,9 @@ args = parser.parse_args()
 
 args.threads = check_threads(args.threads)
 
+assert_msg = "folder expected, file found: %s" % args.output
+assert not os.path.isfile(args.output), assert_msg
+
 # At least two bed files if not normalizing
 assert_msg = "at least two (2) GPSeq condition bedfiles,"
 assert_msg += " in increasing order of restriction"
@@ -277,7 +283,7 @@ def print_settings(args, clear = True):
 		args (Namespace): arguments parsed by argparse.
 		clear (bool): clear screen before printing.
 	'''
-	s = " # GPSeq-centrality-estimate\n\n"
+	s = " # GPSeq-centrality-estimate v%s\n\n" % version
 
 	if type(None) != type(args.bin_bed):
 		s += " Bin be file: %s\n" % args.bin_bed
@@ -348,9 +354,14 @@ if 0 != args.group_size: descr += ".group%d" % args.group_size
 descr += ".csm%d" % args.cutsite_mode
 if args.normalize: descr += ".norm"
 
+# Create output folder if missing
+if not os.path.isdir(args.output): os.mkdir(args.output)
+
 # Save confirmed settings
 with open(os.path.join(args.output, "%ssettings.%s%s.txt" % (
 	args.prefix, descr, args.suffix)), "w+") as OH:
+	OH.write("%s\n" % " ".join(sys.argv))
+	OH.write("@%s\n\n" % datetime.datetime.now())
 	OH.write(ssettings)
 
 # Parse all bed files ----------------------------------------------------------
