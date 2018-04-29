@@ -181,7 +181,7 @@ r2 = r2.intersection(r1)
 
 # 
 print("Testing Kendall tau distance...")
-print(r1[0].KendallTau(r1[1]))
+print(r1[0].KendallTau(r1[1], progress = True))
 
 # End --------------------------------------------------------------------------
 

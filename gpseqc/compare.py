@@ -249,14 +249,14 @@ class MetricTable():
         rankings from the first (self). Same as self & b.'''
         return self & b
 
-    @profile
-    def KendallTau(self, b, skipSubset = False):
+    def KendallTau(self, b, skipSubset = False, progress = False):
         '''Calculate Kendall tau distance between two MetricTables.
         The distance is calculated only on the intersection between the tables.
 
         Args:
-            b (MetricTable): .
-            skipSubset (bool): .
+            b (MetricTable): second rank.
+            skipSubset (bool): if the two ranks are already subsetted.
+            progress (bool): show progress bar.
         '''
 
         # Apply subsetting if needed
@@ -264,34 +264,20 @@ class MetricTable():
             a = self.intersection(b)
             b = b.intersection(a)
 
-        # Calculate elements indexes
-        idx = np.array([a._df.index.tolist(),
-            np.array([a._all_regions().index(x) 
-                for x in b.iter_regions()])], dtype = "i").transpose()
-        print(2)
-
-        # Identify all possible couples
-        exg = np.array([(x, y) for x in tqdm(idx[:,0]) for y in idx[:,0]])
-        print(3)
-
-        # Calculate number of discordant orders
-        n = (np.array(idx[exg[:,0],0]) > np.array(idx[exg[:,1],0])).astype('i')
-        print(4)
-        n += (np.array(idx[exg[:,0],1]) > np.array(idx[exg[:,1],1])).astype('i')
-        print(5)
-        n = sum(n == 1) / 2.
-
-        print(n)
-
-        n2 = 0
-        bset = set()
-        regs = self._all_regions()
-        for i in tqdm(range(len(b))):
+        # Count number of discordant pairs
+        n = 0
+        bset = set()            # Growing set of regions in B
+        regs = a._all_regions() # Regions in A
+        igen = range(len(b))
+        if progress: igen = tqdm(igen)
+        for i in igen:
+            # Find the intersection in the sets of elements before the selected
+            # one, in both rankings. Elements outside the intersection are
+            # part of a discordat pair. Each discordant pair is counted once.
             breg = tuple(b[i].iloc[:3].tolist())
             bset.add(breg)
-            aset = set(regs[:regs.index(breg)])
-            n2 += len(aset) + len(bset) - 2  * len(bset.intersection(aset))
-        print(n2)
+            aset = set(regs[:(regs.index(breg) + 1)])
+            n += len(aset) - len(bset.intersection(aset))
 
         # Normalize
         d = n / (len(a) * (len(a) - 1) / 2.)
@@ -299,6 +285,7 @@ class MetricTable():
         # Output
         return d
 
+    @profile
     def KendallTau_weighted(self, b, skipSubset = False):
         '''Calculate Kendall tau distance between two MetricTables.
         The distance is calculated only on the intersection between the tables.
@@ -312,6 +299,10 @@ class MetricTable():
         if not skipSubset:
             a = self.intersection(b)
             b = b.intersection(self)
+
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # Replace with same set-based approach as in KT calculation.
+        # Build dictionary to store metrics as values and regions as keys.
 
         # Calculate elements indexes
         idx = np.array([self._df.index, [self._all_regions().index(x) 
