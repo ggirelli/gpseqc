@@ -177,7 +177,9 @@ r2 = RankTable(args.rank2)
 # Make intersection
 print("Subsetting rank tables...")
 r1 = r1.intersection(r2)
+assert 0 != len(r1), "empty table left after subsetting."
 r2 = r2.intersection(r1)
+assert 0 != len(r2), "empty table left after subsetting."
 
 # 
 print("Testing Kendall tau distance...")

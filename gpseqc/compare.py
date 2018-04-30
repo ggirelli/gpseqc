@@ -111,7 +111,7 @@ class RankTable(object):
 
         # Identify intersection
         iset = set(self.iter_regions()).intersection(set(b.iter_regions()))
-        if 0 == len(iset): return(None)
+        if 0 == len(iset): return(RankTable())
 
         # Copy current dataframe and subset it
         df = self._df.copy()
