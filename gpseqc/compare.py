@@ -264,16 +264,20 @@ class MetricTable():
             a = self.intersection(b)
             b = b.intersection(a)
 
-        # Count number of discordant pairs
+        # Count number of discordant pairs -------------------------------------
         n = 0
         bset = set()            # Growing set of regions in B
         regs = a._all_regions() # Regions in A
+
+        # Prepare regions generator
         igen = range(len(b))
         if progress: igen = tqdm(igen)
+
+        # For each region in B, identify the regions with higher rank in A
+        # and B and find the intersection between the two sets. The union
+        # minus the intersection of the two sets is the number of discordant
+        # pairs needed to calculate the Kendall tau distance.
         for i in igen:
-            # Find the intersection in the sets of elements before the selected
-            # one, in both rankings. Elements outside the intersection are
-            # part of a discordat pair. Each discordant pair is counted once.
             breg = tuple(b[i].iloc[:3].tolist())
             bset.add(breg)
             aset = set(regs[:(regs.index(breg) + 1)])
@@ -285,8 +289,12 @@ class MetricTable():
         # Output
         return d
 
-    @profile
-    def KendallTau_weighted(self, b, skipSubset = False):
+    def dKT(self, *args, **kwargs):
+        '''Alias for self.KendallTau.'''
+        return self.KendallTau(*args, **kwargs)
+
+    #@profile
+    def KendallTau_weighted(self, b, skipSubset = False, progress = False):
         '''Calculate Kendall tau distance between two MetricTables.
         The distance is calculated only on the intersection between the tables.
 
@@ -300,16 +308,90 @@ class MetricTable():
             a = self.intersection(b)
             b = b.intersection(self)
 
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # Replace with same set-based approach as in KT calculation.
-        # Build dictionary to store metrics as values and regions as keys.
+        # Count number of discordant pairs -------------------------------------
+        n = 0
+        w = 0
+        d = 0
+        bset = {}
+        bregs = dict([(a._all_regions()[i], a[i].iloc[3])
+            for i in range(len(a))])
+        aregs = dict([(a._all_regions()[i], a[i].iloc[3])
+            for i in range(len(a))])
+
+        # Prepare regions generator
+        igen = range(len(b))
+        if progress: igen = tqdm(igen)
+
+        # For each region in B, identify the regions with higher rank in A
+        # and B and find the intersection between the two sets. The union
+        # minus the intersection of the two sets is the number of discordant
+        # pairs needed to calculate the Kendall tau distance.
+        # 
+        # In the weighted approach, retain the estimated centrality of each
+        # region and use it as weight. As the table is ranked from peripheral to
+        # central (increasing estimate value) the current (i-th) metric will
+        # always be greater than or equal to any other in the set.
+        for i in igen:
+            breg = tuple(b[i].iloc[:3].tolist())
+            bset[breg] = b[i].iloc[3]
+
+            # Total weight for normalization -----------------------------------
+
+            wa = np.array(list(bset.values()))
+            wa = np.absolute((wa - bset[breg]) / wa)
+
+            aidx = a._all_regions().index(breg)
+            wb = a[:(aidx + 1)].iloc[:, 3].values
+            wb = (np.absolute(wb - a[aidx].iloc[3]) / wb)
+
+            w += (np.nansum(wa) + np.nansum(wb)) / 2
+
+            # Lower intersection -----------------------------------------------
+
+            aset = set(a._all_regions()[:(aidx + 1)])
+            iset = aset.intersection(bset.keys())
+            n += len(aset) - len(iset)
+
+            # Weight of discordant pairs ---------------------------------------
+
+            wal = np.array([bset[r] for r in bset.keys() if r not in iset])
+            wal = np.absolute((wal - bset[breg]) / wal)
+
+            wbl = np.array([aregs[r] for r in aset if r not in iset])
+            wbl = np.absolute((wbl - a[aidx].iloc[3]) / wbl)
+
+            # # Higher intersection ----------------------------------------------
+
+            # asetH = set(a._all_regions()[aidx:])
+            # bsetH = set(b._all_regions()[i:])
+            # iset = asetH.intersection(bsetH)
+
+            # # Weight of discordant pairs ---------------------------------------
+
+            # wah = np.array([bregs[r] for r in bsetH if r not in iset])
+            # wah = np.absolute((wah - bregs[breg]) / wah)
+
+            # wbh = np.array([aregs[r] for r in asetH if r not in iset])
+            # wbh = np.absolute((wbh - a[aidx - 1].iloc[3]) / wbh)
+
+            #d += np.sum([np.nansum(x) for x in [wal, wbl, wah, wbh]]) / 2
+            d += np.sum([np.nansum(x) for x in [wal, wbl]]) / 2
+
+        print((n, w, d))
+
+        # Normalize
+        d2 = d / w
+
+        # # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # # Replace with same set-based approach as in KT calculation.
+        # # Build dictionary to store metrics as values and regions as keys.
 
         # Calculate elements indexes
         idx = np.array([self._df.index, [self._all_regions().index(x) 
             for x in b.iter_regions()]], dtype = "i").transpose()
 
         # Identify all possible couples
-        exg = np.array([(x, y) for x in idx[:,0] for y in idx[:,0]])
+        exg = np.array([(x, y) for x in tqdm(idx[:,0]) for y in idx[:,0]])
 
         # Identify discordant orders
         disc1 = np.array(idx[exg[:,0],0]) > np.array(idx[exg[:,1],0])
@@ -318,21 +400,27 @@ class MetricTable():
 
         # Calculate weights
         def calc_weight(r, e):
-            v1 = r['value'].values[e[:,0]].astype('f')
-            v2 = r['value'].values[e[:,1]].astype('f')
+            v1 = r.iloc[:, 3].values[e[:,0]].astype('f')
+            v2 = r.iloc[:, 3].values[e[:,1]].astype('f')
             w = abs(v1 - v2) / sum(abs(v1 - v2))
             return(w)
-        w1 = calc_weight(r1, exg)
-        w2 = calc_weight(r2, exg)
+        w1 = calc_weight(a._df, exg)
+        w2 = calc_weight(b._df, exg)
 
         # Calculate sum of discordant orders weights
-        n = sum((w1[disc] + w2[disc]) / 2.)
+        n = np.nansum((w1[disc] + w2[disc]) / 2.)
+
+        print(n, np.nansum(w1), np.nansum(w2))
 
         # Normalize
-        d = n / (sum(w1 + w2) / 2.)
+        d = n / ((np.nansum(w1)+ np.nansum(w2)) / 2.)
 
         # Output
-        return d
+        return (d, d2)
+
+    def dKTw(self, *args, **kwargs):
+        '''Alias for self.KendallTau_weighted.'''
+        return self.KendallTau_weighted(*args, **kwargs)
 
 # END ==========================================================================
 
