@@ -182,8 +182,8 @@ r2 = r2.intersection(r1)
 assert 0 != len(r2), "empty table left after subsetting."
 
 # Calculate distance
-# print("Testing Kendall tau distance...")
-# print(r1[0].dKT(r1[1], progress = True))
+print("Testing Kendall tau distance...")
+print(r1[0].dKT(r1[1], progress = True))
 
 print("Testing weighted Kendall tau distance...")
 print(r1[0].dKTw(r1[1], progress = True))

@@ -312,11 +312,12 @@ class MetricTable():
         n = 0
         w = 0
         d = 0
-        bset = {}
-        bregs = dict([(a._all_regions()[i], a[i].iloc[3])
-            for i in range(len(a))])
-        aregs = dict([(a._all_regions()[i], a[i].iloc[3])
-            for i in range(len(a))])
+        bset = set()
+
+        bregs = b._all_regions()
+        bdregs = dict([(bregs[i], b[i].iloc[3]) for i in range(len(b))])
+        aregs = a._all_regions()
+        adregs = dict([(aregs[i], a[i].iloc[3]) for i in range(len(a))])
 
         # Prepare regions generator
         igen = range(len(b))
@@ -333,90 +334,46 @@ class MetricTable():
         # always be greater than or equal to any other in the set.
         for i in igen:
             breg = tuple(b[i].iloc[:3].tolist())
-            bset[breg] = b[i].iloc[3]
+            bset.add(breg)
 
-            # Total weight for normalization -----------------------------------
-
-            wa = np.array(list(bset.values()))
-            wa = np.absolute((wa - bset[breg]) / wa)
-
-            aidx = a._all_regions().index(breg)
-            wb = a[:(aidx + 1)].iloc[:, 3].values
-            wb = (np.absolute(wb - a[aidx].iloc[3]) / wb)
-
-            w += (np.nansum(wa) + np.nansum(wb)) / 2
 
             # Lower intersection -----------------------------------------------
 
-            aset = set(a._all_regions()[:(aidx + 1)])
-            iset = aset.intersection(bset.keys())
-            n += len(aset) - len(iset)
+            aidx = aregs.index(breg)
+            aset = set(aregs[:(aidx + 1)])
+            iset = aset.intersection(bset)
+            n += (aidx + 1) - len(iset)
+
+            # Total weight for normalization -----------------------------------
+
+            wbl = np.array([bdregs[r] for r in (bset)])
+            wbl = np.absolute((wbl - bdregs[breg]) / wbl)
+            wbh = np.array([bdregs[r] for r in (set(bregs) - bset)])
+            wbh = np.absolute((wbh - bdregs[breg]) / bdregs[breg])
+
+            wal = np.array([adregs[r] for r in (aset)])
+            wal = np.absolute((wal - adregs[breg]) / wal)
+            wah = np.array([adregs[r] for r in (set(aregs) - aset)])
+            wah = np.absolute((wah - adregs[breg]) / adregs[breg])
+
+            w += np.sum([np.nansum(x) for x in [wal, wbl]]) / 2
+            w += np.sum([np.nansum(x) for x in [wah, wbh]]) / 2
 
             # Weight of discordant pairs ---------------------------------------
+            
+            wbl = np.array([bdregs[r] for r in (bset - iset)])
+            wbl = np.absolute((wbl - bdregs[breg]) / wbl)
 
-            wal = np.array([bset[r] for r in bset.keys() if r not in iset])
-            wal = np.absolute((wal - bset[breg]) / wal)
-
-            wbl = np.array([aregs[r] for r in aset if r not in iset])
-            wbl = np.absolute((wbl - a[aidx].iloc[3]) / wbl)
-
-            # # Higher intersection ----------------------------------------------
-
-            # asetH = set(a._all_regions()[aidx:])
-            # bsetH = set(b._all_regions()[i:])
-            # iset = asetH.intersection(bsetH)
-
-            # # Weight of discordant pairs ---------------------------------------
-
-            # wah = np.array([bregs[r] for r in bsetH if r not in iset])
-            # wah = np.absolute((wah - bregs[breg]) / wah)
-
-            # wbh = np.array([aregs[r] for r in asetH if r not in iset])
-            # wbh = np.absolute((wbh - a[aidx - 1].iloc[3]) / wbh)
-
-            #d += np.sum([np.nansum(x) for x in [wal, wbl, wah, wbh]]) / 2
+            wal = np.array([adregs[r] for r in (aset - iset)])
+            wal = np.absolute((wal - adregs[breg]) / wal)
+            
             d += np.sum([np.nansum(x) for x in [wal, wbl]]) / 2
 
-        print((n, w, d))
-
         # Normalize
-        d2 = d / w
-
-        # # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # # Replace with same set-based approach as in KT calculation.
-        # # Build dictionary to store metrics as values and regions as keys.
-
-        # Calculate elements indexes
-        idx = np.array([self._df.index, [self._all_regions().index(x) 
-            for x in b.iter_regions()]], dtype = "i").transpose()
-
-        # Identify all possible couples
-        exg = np.array([(x, y) for x in tqdm(idx[:,0]) for y in idx[:,0]])
-
-        # Identify discordant orders
-        disc1 = np.array(idx[exg[:,0],0]) > np.array(idx[exg[:,1],0])
-        disc2 = np.array(idx[exg[:,0],1]) > np.array(idx[exg[:,1],1])
-        disc = (disc1.astype('i') + disc2.astype('i')) == 1
-
-        # Calculate weights
-        def calc_weight(r, e):
-            v1 = r.iloc[:, 3].values[e[:,0]].astype('f')
-            v2 = r.iloc[:, 3].values[e[:,1]].astype('f')
-            w = abs(v1 - v2) / sum(abs(v1 - v2))
-            return(w)
-        w1 = calc_weight(a._df, exg)
-        w2 = calc_weight(b._df, exg)
-
-        # Calculate sum of discordant orders weights
-        n = np.nansum((w1[disc] + w2[disc]) / 2.)
-
-        print(n, np.nansum(w1), np.nansum(w2))
-
-        # Normalize
-        d = n / ((np.nansum(w1)+ np.nansum(w2)) / 2.)
+        d /= w
 
         # Output
-        return (d, d2)
+        return d
 
     def dKTw(self, *args, **kwargs):
         '''Alias for self.KendallTau_weighted.'''
