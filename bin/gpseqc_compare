@@ -44,6 +44,7 @@
 # DEPENDENCIES =================================================================
 
 import argparse
+import numpy as np
 import os
 import sys
 
@@ -100,6 +101,8 @@ parser.add_argument('-p', '--prefix', type = str, metavar = 'text',
 	default = '', help = """Text for output file name prefix.""")
 parser.add_argument('-s', '--suffix', type = str, metavar = 'text',
 	default = '', help = """Text for output file name suffix.""")
+parser.add_argument('-S', '--seed', type = int, metavar = 'seed',
+	default = None, help = """Seed for random number generator.""")
 
 # Flags
 parser.add_argument('-y', '--do-all', action = 'store_const',
@@ -134,6 +137,9 @@ if 0 != len(args.prefix):
 if 0 != len(args.suffix):
 	if '.' != args.suffix[0]: args.suffix = '.' + args.suffix
 
+if not type(None) == type(args.seed):
+	np.random.seed(args.seed)
+
 # FUNCTION =====================================================================
 
 def print_settings(args, clear = True):
@@ -155,6 +161,9 @@ def print_settings(args, clear = True):
 	s += "\n    Delim : '%s'\n" % args.delim
 	if 0 != len(args.prefix): s += "   Prefix : '%s'\n" % args.prefix
 	if 0 != len(args.suffix): s += "   Suffix : '%s'\n" % args.suffix
+
+	if type(None) != type(args.seed):
+		s += "\n  Seed : %d\n" % args.seed
 
 	if clear: print("\033[H\033[J%s" % s)
 	else: print(s)
