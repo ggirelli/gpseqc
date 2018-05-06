@@ -130,8 +130,36 @@ class RankTable(object):
         from the first (self). Same as self & b.'''
         return self & b
 
+    def shuffle(self):
+        '''Shuffles the regions of a RankTable.
 
-class MetricTable():
+        Returns:
+            A new RankTable with shuffled regions.
+        '''
+        pass
+
+    def calc_KendallTau(self, b):
+        '''Calculate the Kendall Tau distance between all the MetricTables in
+        the two RankTables.
+        '''
+        pass
+
+    def dKT(self, *args, **kwargs):
+        '''Alias for calc_KendallTau.'''
+        return self.calc_KendallTau(*args, **kwargs)
+
+    def calc_KendallTau_weighted(self, b):
+        '''Calculate the weighted Kendall Tau distance between all the
+        MetricTables in the two RankTables.
+        '''
+        pass
+
+    def dKTw(self, *args, **kwargs):
+        '''Alias for calc_KendallTau_weighted.'''
+        return self.calc_KendallTau_weighted(*args, **kwargs)
+
+
+class MetricTable(oject):
     '''Instance of a metric table, with 4 columns: chr, start, end, metric.
 
     Attributes:
@@ -249,7 +277,15 @@ class MetricTable():
         rankings from the first (self). Same as self & b.'''
         return self & b
 
-    def KendallTau(self, b, skipSubset = False, progress = False):
+    def shuffle(self):
+        '''Shuffles the regions of a MetricTable.
+
+        Returns:
+            A new MetricTable with shuffled regions.
+        '''
+        pass
+
+    def calc_KendallTau(self, b, skipSubset = False, progress = False):
         '''Calculate Kendall tau distance between two MetricTables.
         The distance is calculated only on the intersection between the tables.
 
@@ -290,11 +326,11 @@ class MetricTable():
         return d
 
     def dKT(self, *args, **kwargs):
-        '''Alias for self.KendallTau.'''
-        return self.KendallTau(*args, **kwargs)
+        '''Alias for calc_KendallTau.'''
+        return self.calc_KendallTau(*args, **kwargs)
 
     #@profile
-    def KendallTau_weighted(self, b, skipSubset = False, progress = False):
+    def calc_KendallTau_weighted(self, b, skipSubset = False, progress = False):
         '''Calculate Kendall tau distance between two MetricTables.
         The distance is calculated only on the intersection between the tables.
 
@@ -376,8 +412,16 @@ class MetricTable():
         return d
 
     def dKTw(self, *args, **kwargs):
-        '''Alias for self.KendallTau_weighted.'''
-        return self.KendallTau_weighted(*args, **kwargs)
+        '''Alias for calc_KendallTau_weighted.'''
+        return self.calc_KendallTau_weighted(*args, **kwargs)
+
+    def shuffle(self):
+        '''Shuffles the regions of a MetricTable.
+
+        Returns:
+            A new MetricTable with shuffled regions.
+        '''
+        pass
 
 # END ==========================================================================
 
