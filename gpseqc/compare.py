@@ -293,7 +293,6 @@ class MetricTable():
         '''Alias for self.KendallTau.'''
         return self.KendallTau(*args, **kwargs)
 
-    #@profile
     def KendallTau_weighted(self, b, skipSubset = False, progress = False):
         '''Calculate Kendall tau distance between two MetricTables.
         The distance is calculated only on the intersection between the tables.
@@ -323,6 +322,28 @@ class MetricTable():
         igen = range(len(b))
         if progress: igen = tqdm(igen)
 
+        def lower_bound_weight(reg, rset, dregs):
+            '''Calculate weight when reg has higher weight.
+
+            Args:
+              reg (tuple): bed region (chrom, start, end).
+              rset (set): set of regions with weight lower than reg's.
+              dregs (dict): (region, weight) dictionary.
+            '''
+            w = np.array([dregs[r] for r in rset])
+            return np.absolute((w - dregs[reg]) / w)
+        
+        def higher_bound_weight(reg, rset, dregs):
+            '''Calculate weight when reg has lower weight.
+
+            Args:
+              reg (tuple): bed region (chrom, start, end).
+              rset (set): set of regions with weight higher than reg's.
+              dregs (dict): (region, weight) dictionary.
+            '''
+            w = np.array([dregs[r] for r in rset])
+            return np.absolute((w - dregs[reg]) / dregs[reg])
+
         # For each region in B, identify the regions with higher rank in A
         # and B and find the intersection between the two sets. The union
         # minus the intersection of the two sets is the number of discordant
@@ -346,26 +367,19 @@ class MetricTable():
 
             # Total weight for normalization -----------------------------------
 
-            wbl = np.array([bdregs[r] for r in (bset)])
-            wbl = np.absolute((wbl - bdregs[breg]) / wbl)
-            wbh = np.array([bdregs[r] for r in (set(bregs) - bset)])
-            wbh = np.absolute((wbh - bdregs[breg]) / bdregs[breg])
+            wbl = lower_bound_weight(breg, bset, bdregs)
+            wbh = higher_bound_weight(breg, set(bregs) - bset, bdregs)
 
-            wal = np.array([adregs[r] for r in (aset)])
-            wal = np.absolute((wal - adregs[breg]) / wal)
-            wah = np.array([adregs[r] for r in (set(aregs) - aset)])
-            wah = np.absolute((wah - adregs[breg]) / adregs[breg])
+            wal = lower_bound_weight(breg, aset, adregs)
+            wah = higher_bound_weight(breg, set(aregs) - aset, adregs)
 
             w += np.sum([np.nansum(x) for x in [wal, wbl]]) / 2
             w += np.sum([np.nansum(x) for x in [wah, wbh]]) / 2
 
             # Weight of discordant pairs ---------------------------------------
             
-            wbl = np.array([bdregs[r] for r in (bset - iset)])
-            wbl = np.absolute((wbl - bdregs[breg]) / wbl)
-
-            wal = np.array([adregs[r] for r in (aset - iset)])
-            wal = np.absolute((wal - adregs[breg]) / wal)
+            wbl = lower_bound_weight(breg, bset - iset, bdregs)
+            wal = lower_bound_weight(breg, aset - iset, adregs)
             
             d += np.sum([np.nansum(x) for x in [wal, wbl]]) / 2
 
