@@ -8,13 +8,13 @@
 
 # DEPENDENCIES =================================================================
 
+from joblib import Parallel, delayed
 import numpy as np
 import os
 import pandas as pd
 from tqdm import tqdm
 
-from memory_profiler import profile
-
+from ggc.args import check_threads
 from gpseqc.centrality import CMETRICS
 
 # FUNCTIONS ====================================================================
@@ -136,35 +136,143 @@ class RankTable(object):
         Returns:
             A new RankTable with shuffled regions.
         '''
-        pass
+        df = self._df.copy()
+        a = np.array(self._all_regions())
+        np.random.shuffle(a)
+        df.iloc[:, :3] = a
+        return RankTable(df = df)
 
-    def calc_KendallTau(self, b):
-        '''Calculate the Kendall Tau distance between all the MetricTables in
-        the two RankTables.
+    def compare(self, b, dfun = None, skipSubset = False,
+        progress = False, threads = 1):
+        '''Calculate the distance between all the MetricTables in the two
+        RankTables. Distance is defined as dfun.
+
+        Args:
+            b (MetricTable): second rank.
+            dfun (fun): distance function with index1, index2, mt1, mt2 input.
+            skipSubset (bool): if the two ranks are already subsetted.
+            progress (bool): show progress bar.
+            threads (int): number of threads for parallelization.
+
+        Returns:
+            pd.DataFrame: table with distance between a pair of metrics in each
+                          cell.
         '''
-        pass
+
+        dfun = dKT_iter if type(None) == type(dfun) else dfun
+        threads = check_threads(threads)
+
+        # Apply subsetting if needed
+        if not skipSubset:
+            a = self.intersection(b)
+            b = b.intersection(a)
+        else:
+            a = self
+
+        # Run comparison -------------------------------------------------------
+        
+        # Prepare generator of index couples
+        def pair_gen(a, b):
+            for aidx in range(len(a)):
+                for bidx in range(len(b)):
+                    yield (aidx, bidx)
+        pgen = pair_gen(a, b)
+
+        if 1 == threads: # Single-thread
+            if progress: pgen = tqdm(pgen, total = len(a)*len(b))
+            dtab = [dfun(aidx, bidx, a, b) for (aidx, bidx) in pgen]
+        else: # Parallelized
+            dtab = Parallel(n_jobs = threads, verbose = 11 if progress else 0)(
+                delayed(dfun)(aidx, bidx, a, b)
+                for (aidx, bidx) in pgen)
+
+        # Reshape distance table
+        dtab = np.array(dtab)
+        dtab = dtab.reshape((len(a), len(b)))
+
+        # Add labels
+        dtab = pd.DataFrame(dtab)
+        dtab.columns = ["R2_%s" % m for m in b.available_metrics()]
+        dtab.index = ["R1_%s" % m for m in a.available_metrics()]
+
+        return(dtab)
+
+    def build_rand_distr(self, b, dfun = None, niter = 1000, skipSubset = False,
+        progress = False, threads = 1):
+        '''Builds a random distribution by shuffling the two Ranking tables
+        and then comparing them. This process needs to be iterated a large enough
+        number of times to produce a proper distribution.
+
+        Args:
+            b (MetricTable): second rank.
+            dfun (fun): distance function with index1, index2, mt1, mt2 input.
+            niter (int): number of iterations to build the random distribution.
+            skipSubset (bool): if the two ranks are already subsetted.
+            progress (bool): show progress bar.
+            threads (int): number of threads for parallelization.
+        '''
+        
+        assert niter >= 1, "at least one iteration is required."
+
+        dfun = dKT_iter if type(None) == type(dfun) else dfun
+        threads = check_threads(threads)
+
+        # Apply subsetting if needed
+        if not skipSubset:
+            a = self.intersection(b)
+            b = b.intersection(a)
+        else:
+            a = self
+
+        # Build random distribution --------------------------------------------
+
+        # Build iteration generator
+        igen = (i for i in range(niter))
+        if progress: igen = tqdm(igen, total = niter)
+
+        # Calculate distance table after niter shuffles
+        ds = []
+        for i in igen:
+            a = self.shuffle()
+            b = b.shuffle()
+            ds.append(a.compare(b, dfun, skipSubset, threads = threads))
+
+        return(ds)
+
+    def calc_KendallTau(self, b, *args, **kwargs):
+        '''Calculate the Kendall Tau distance between all the MetricTables in
+        the two RankTables. Additional parameters are passed to the self.compare
+        function.
+        '''
+        return self.compare(b, dKT_iter, *args, **kwargs)
 
     def dKT(self, *args, **kwargs):
         '''Alias for calc_KendallTau.'''
         return self.calc_KendallTau(*args, **kwargs)
 
-    def calc_KendallTau_weighted(self, b):
+    def calc_KendallTau_weighted(self, b, *args, **kwargs):
         '''Calculate the weighted Kendall Tau distance between all the
-        MetricTables in the two RankTables.
+        MetricTables in the two RankTables. Additional parameters are passed to
+        the self.compare function.
         '''
-        pass
+        return self.compare(b, dKTw_iter, *args, **kwargs)
 
     def dKTw(self, *args, **kwargs):
         '''Alias for calc_KendallTau_weighted.'''
         return self.calc_KendallTau_weighted(*args, **kwargs)
 
+def dKT_iter(aidx, bidx, a, b):
+    return a[aidx].dKT(b[bidx])
+
+def dKTw_iter(aidx, bidx, a, b):
+    return a[aidx].dKTw(b[bidx])
 
 class MetricTable(object):
     '''Instance of a metric table, with 4 columns: chr, start, end, metric.
-
+    
     Attributes:
-        _df (pd.DataFrame): parsed metric table.
-        _metric (str): label of the metric in the table.
+      _df (pd.DataFrame): parsed metric table.
+      _metric (str): label of the metric in the table.
     '''
 
     _df = None
@@ -283,7 +391,11 @@ class MetricTable(object):
         Returns:
             A new MetricTable with shuffled regions.
         '''
-        pass
+        df = self._df.copy()
+        a = np.array(self._all_regions())
+        np.random.shuffle(a)
+        df.iloc[:, :3] = a
+        return MetricTable(df = df)
 
     def calc_KendallTau(self, b, skipSubset = False, progress = False):
         '''Calculate Kendall tau distance between two MetricTables.
@@ -299,6 +411,8 @@ class MetricTable(object):
         if not skipSubset:
             a = self.intersection(b)
             b = b.intersection(a)
+        else:
+            a = self
 
         # Count number of discordant pairs -------------------------------------
         n = 0
@@ -342,6 +456,8 @@ class MetricTable(object):
         if not skipSubset:
             a = self.intersection(b)
             b = b.intersection(self)
+        else:
+            a = self
 
         # Count number of discordant pairs -------------------------------------
         n = 0
@@ -367,6 +483,7 @@ class MetricTable(object):
               dregs (dict): (region, weight) dictionary.
             '''
             w = np.array([dregs[r] for r in rset])
+            w[w == 0] = np.nan
             return np.absolute((w - dregs[reg]) / w)
         
         def higher_bound_weight(reg, rset, dregs):
@@ -378,6 +495,7 @@ class MetricTable(object):
               dregs (dict): (region, weight) dictionary.
             '''
             w = np.array([dregs[r] for r in rset])
+            if dregs[reg] == 0: return np.nan
             return np.absolute((w - dregs[reg]) / dregs[reg])
 
         # For each region in B, identify the regions with higher rank in A
@@ -429,13 +547,6 @@ class MetricTable(object):
         '''Alias for calc_KendallTau_weighted.'''
         return self.calc_KendallTau_weighted(*args, **kwargs)
 
-    def shuffle(self):
-        '''Shuffles the regions of a MetricTable.
-
-        Returns:
-            A new MetricTable with shuffled regions.
-        '''
-        pass
 
 # END ==========================================================================
 

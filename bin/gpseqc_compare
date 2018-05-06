@@ -190,12 +190,19 @@ assert 0 != len(r1), "empty table left after subsetting."
 r2 = r2.intersection(r1)
 assert 0 != len(r2), "empty table left after subsetting."
 
-# Calculate distance
-print("Testing Kendall tau distance...")
-print(r1[0].dKT(r1[1], progress = True))
+# # Calculate distance
+# print("Testing Kendall tau distance...")
+# print(r1[0].dKT(r1[1], progress = True))
 
-print("Testing weighted Kendall tau distance...")
-print(r1[0].dKTw(r1[1], progress = True))
+# print("Testing weighted Kendall tau distance...")
+# print(r1[0].dKTw(r1[1], progress = True))
+
+#print("Comparing rank tables (KTw)...")
+#print(r1.dKTw(r2, skipSubset = True, progress = True, threads = args.threads))
+
+print("Building random distribution (KTw)...")
+print(r1.build_rand_distr(r2, skipSubset = True,
+	progress = True, threads = args.threads))
 
 # End --------------------------------------------------------------------------
 
