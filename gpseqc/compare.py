@@ -159,7 +159,7 @@ class RankTable(object):
         return self.calc_KendallTau_weighted(*args, **kwargs)
 
 
-class MetricTable(oject):
+class MetricTable(object):
     '''Instance of a metric table, with 4 columns: chr, start, end, metric.
 
     Attributes:
