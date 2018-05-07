@@ -31,21 +31,21 @@ class RankTable(object):
     _df = None
     _avail_metrics = []
 
-    def __init__(self, ipath = None, sep = "\t", df = None):
+    def __init__(self, path = None, sep = "\t", df = None):
         '''Read and parse rank table file.
 
         Args:
-            ipath (str): path to rank table file.
+            path (str): path to rank table file.
             sep (str): field delimiter.
         '''
 
-        if type(None) != type(ipath):
-            assert os.path.isfile(ipath), "file not found: %s" % ipath
+        if type(None) != type(path):
+            assert os.path.isfile(path), "file not found: %s" % path
 
             # Read file
             self._sep = sep
-            self._path = ipath
-            self._df = pd.read_csv(ipath, sep, header = 0)
+            self._path = path
+            self._df = pd.read_csv(path, sep, header = 0)
         elif type(None) != type(df):
             self._df = df
         else:
@@ -72,8 +72,7 @@ class RankTable(object):
 
     def __iter__(self):
         '''Yield one metric table at a time.'''
-        for i in range(len(self)):
-            yield self[i]
+        return (self[i] for i in range(len(self)))
 
     def __len__(self):
         '''Return number of metrics in the RankTable.'''
@@ -85,13 +84,11 @@ class RankTable(object):
 
     def available_metrics(self):
         '''Yields available metrics.'''
-        for am in self._avail_metrics:
-            yield am
+        return (am for am in self._avail_metrics)
 
     def iter_regions(self):
         '''Yields regions.'''
-        for r in self._all_regions():
-            yield r
+        return (r for r in self._all_regions())
 
     def _all_regions(self):
         '''Return the list of region intervals.'''
@@ -474,7 +471,7 @@ class MetricTable(object):
         igen = range(len(b))
         if progress: igen = tqdm(igen)
 
-        def lower_bound_weight(reg, rset, dregs):
+        def calcLowerBoundWeight(reg, rset, dregs):
             '''Calculate weight when reg has higher weight.
 
             Args:
@@ -483,10 +480,11 @@ class MetricTable(object):
               dregs (dict): (region, weight) dictionary.
             '''
             w = np.array([dregs[r] for r in rset])
-            w[w == 0] = np.nan
+            nan_cond = w == 0
+            if 0 != sum(nan_cond): w[nan_cond] = np.nan
             return np.absolute((w - dregs[reg]) / w)
         
-        def higher_bound_weight(reg, rset, dregs):
+        def calcHigherBoundWeight(reg, rset, dregs):
             '''Calculate weight when reg has lower weight.
 
             Args:
@@ -497,6 +495,41 @@ class MetricTable(object):
             w = np.array([dregs[r] for r in rset])
             if dregs[reg] == 0: return np.nan
             return np.absolute((w - dregs[reg]) / dregs[reg])
+
+        def calcTotalWeight(r, aset, bset, aregs, bregs, adregs, bdregs):
+            '''Calculate total weight between two sets, for normalization.
+
+            Args:
+              r (tuple): (chrom, start, end).
+              aset/bset (set): regions set.
+              aregs/bregs (list): list of regions.
+              adregs/bdregs (dict): (list, estimate) dictionary.
+
+            Returns:
+              float
+            '''
+            w  = np.nansum(calcLowerBoundWeight(r, bset, bdregs))
+            w += np.nansum(calcHigherBoundWeight(r, set(bregs) - bset, bdregs))
+            w += np.nansum(calcLowerBoundWeight(r, aset, adregs))
+            w += np.nansum(calcHigherBoundWeight(r, set(aregs) - aset, adregs))
+            w /= 2
+            return w
+
+        def calcDiscordantWeight(r, aset, bset, iset, adregs, bdregs):
+            '''Calculate weight between discordant pairs in two sets.
+
+            Args:
+              r (tuple): (chrom, start, end).
+              aset/bset (set): regions set.
+              iset (set): intersection between aset and bset.
+              adregs/bdregs (dict): (list, estimate) dictionary.
+
+            Returns:
+              float
+            '''
+            wbl = calcLowerBoundWeight(r, bset - iset, bdregs)
+            wal = calcLowerBoundWeight(r, aset - iset, adregs)
+            return np.sum([np.nansum(x) for x in [wal, wbl]]) / 2
 
         # For each region in B, identify the regions with higher rank in A
         # and B and find the intersection between the two sets. The union
@@ -511,31 +544,13 @@ class MetricTable(object):
             breg = tuple(b[i].iloc[:3].tolist())
             bset.add(breg)
 
-
-            # Lower intersection -----------------------------------------------
-
             aidx = aregs.index(breg)
             aset = set(aregs[:(aidx + 1)])
             iset = aset.intersection(bset)
+
             n += (aidx + 1) - len(iset)
-
-            # Total weight for normalization -----------------------------------
-
-            wbl = lower_bound_weight(breg, bset, bdregs)
-            wbh = higher_bound_weight(breg, set(bregs) - bset, bdregs)
-
-            wal = lower_bound_weight(breg, aset, adregs)
-            wah = higher_bound_weight(breg, set(aregs) - aset, adregs)
-
-            w += np.sum([np.nansum(x) for x in [wal, wbl]]) / 2
-            w += np.sum([np.nansum(x) for x in [wah, wbh]]) / 2
-
-            # Weight of discordant pairs ---------------------------------------
-            
-            wbl = lower_bound_weight(breg, bset - iset, bdregs)
-            wal = lower_bound_weight(breg, aset - iset, adregs)
-            
-            d += np.sum([np.nansum(x) for x in [wal, wbl]]) / 2
+            w += calcTotalWeight(breg, aset, bset, aregs, bregs, adregs, bdregs)
+            d += calcDiscordantWeight(breg, aset, bset, iset, adregs, bdregs)
 
         # Normalize
         d /= w
