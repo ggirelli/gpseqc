@@ -230,11 +230,67 @@ class RankTable(object):
         # Calculate distance table after niter shuffles
         ds = []
         for i in igen:
-            a = self.shuffle()
-            b = b.shuffle()
-            ds.append(a.compare(b, dfun, skipSubset, threads = threads))
+            ds.append(self.shuffle().compare(b.shuffle(),
+                dfun, skipSubset, threads = threads))
 
         return(ds)
+
+    def calc_comparison_test_p_value(d, rand_distr):
+        ''''''
+        return((np.nan, np.nan, np.nan, np.nan))
+
+    def test_comparison(self, b, dfun = None, niter = 1000, skipSubset = False,
+        progress = False, threads = 1):
+        ''''''
+        
+        
+        assert niter >= 1, "at least one iteration is required."
+
+        dfun = dKT_iter if type(None) == type(dfun) else dfun
+        threads = check_threads(threads)
+
+        # Apply subsetting if needed
+        if not skipSubset:
+            a = self.intersection(b)
+            b = b.intersection(a)
+        else:
+            a = self
+
+        # Compare --------------------------------------------------------------
+
+        if progress: print("> Calculating distances...")
+        dtab = a.compare(b, dfun, skipSubset = True,
+            progress = progress, threads = threads)
+
+        if progress: print("> Building random distribution [n:%d]..." % niter)
+        rand_distr = a.build_rand_distr(b, dfun, niter, skipSubset = True,
+            progress = progress, threads = threads)
+
+        if progress: print("> Calculating p-value(s)...")
+
+        Zpval_df = dtab.copy()
+        Zpval_df[Zpval_df >= 0] = np.nan
+        Z_df = Zpval_df.copy()
+        KSpval_df = Zpval_df.copy()
+        KS_df = Zpval_df.copy()
+        
+        pgen = ((i, j) for i in dtab.index for j in dtab.columns)
+        if progress: pgen = tqdm(pgen, total = dtab.shape[0] * dtab.shape[1])
+        for (i, j) in pgen:
+            Z, Zpval, KS, KSpval = RankTable.calc_comparison_test_p_value(
+                dtab.loc[i, j], [d.loc[i, j] for d in rand_distr])
+            Z_df.loc[i, j] = Z
+            Zpval_df.loc[i, j] = Zpval
+            KS_df.loc[i, j] = KS
+            KSpval_df.loc[i, j] = KSpval
+
+        return({
+            "Z" : Z_df, "Zpval" : Zpval_df,
+            "KS" : KS_df, "KSpval" : KSpval_df
+        })
+
+
+
 
     def calc_KendallTau(self, b, *args, **kwargs):
         '''Calculate the Kendall Tau distance between all the MetricTables in
@@ -258,11 +314,13 @@ class RankTable(object):
         '''Alias for calc_KendallTau_weighted.'''
         return self.calc_KendallTau_weighted(*args, **kwargs)
 
+
 def dKT_iter(aidx, bidx, a, b):
     return a[aidx].dKT(b[bidx])
 
 def dKTw_iter(aidx, bidx, a, b):
     return a[aidx].dKTw(b[bidx])
+
 
 class MetricTable(object):
     '''Instance of a metric table, with 4 columns: chr, start, end, metric.
@@ -309,7 +367,7 @@ class MetricTable(object):
         # Sort (rank)
         self._df = self._df.sort_values(self._metric)
         self._df.index = range(self._df.shape[0])
-        
+
     def __getitem__(self, i):
         '''Return the i-th region.'''
         if type(0) == type(i):
