@@ -12,6 +12,7 @@ from joblib import Parallel, delayed
 import numpy as np
 import os
 import pandas as pd
+from scipy.stats import norm, ks_2samp
 from tqdm import tqdm
 
 from ggc.args import check_threads
@@ -246,7 +247,23 @@ class RankTable(object):
         Returns:
             tuple: Z, Zpvalue, KS, KSpvalue.
         '''
-        return((np.nan, np.nan, np.nan, np.nan))
+
+        # Fit Gaussian
+        mu, sigma = norm.fit(rand_distr)
+
+        # Calculate significance
+        Z = (d - mu) / sigma
+        Zpval = norm.cdf(d, mu, sigma)
+        if .5 < pval: pval = 1 - pval
+        pval *= 2
+
+        # Calculate goodness-of-fit
+        obs = np.histogram(rand_distr, bins = 100, density = True)[0]
+        exp = np.array(norm.pdf(np.linspace(0, 1, 100),
+            loc = mu, scale = sigma))
+        KS, KSpval = ks_2samp(obs, exp)
+
+        return((Z, Zpval, KS, KSpval))
 
     def test_comparison(self, b, dfun = None, niter = 1000, skipSubset = False,
         progress = False, threads = 1):
