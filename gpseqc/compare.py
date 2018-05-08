@@ -235,14 +235,44 @@ class RankTable(object):
 
         return(ds)
 
-    def calc_comparison_test_p_value(d, rand_distr):
-        ''''''
+    def compare_to_rand_distr(d, rand_distr):
+        '''Compares a value "d" with a random distribution (expected to fit a
+        Gaussian). Also provides goodness-of-fit for the Gaussian.
+
+        Args:
+            d (float): value to compare to random distribution.
+            rand_distr (np.ndarray): random distribution.
+
+        Returns:
+            tuple: Z, Zpvalue, KS, KSpvalue.
+        '''
         return((np.nan, np.nan, np.nan, np.nan))
 
     def test_comparison(self, b, dfun = None, niter = 1000, skipSubset = False,
         progress = False, threads = 1):
-        ''''''
-        
+        '''Compare two rank tables, providing p-value for significance against
+        random distribution (built with niter iterations), and Kolmogorov-
+        -Smirnov p-value of Gaussian goodnes-of-fit over the random
+        distribution. The goodness-of-fit is required for the proper calculation
+        of the significance p-value.
+
+        Args:
+            b (MetricTable): second rank.
+            dfun (fun): distance function with index1, index2, mt1, mt2 input.
+            niter (int): number of iterations to build the random distribution.
+            skipSubset (bool): if the two ranks are already subsetted.
+            progress (bool): show progress bar.
+            threads (int): number of threads for parallelization.
+
+        Returns:
+            dict: with the following keys:
+                dist: DataFrame with distance between metrics.
+                random_distribution: niter distance DataFrames after shuffling..
+                Z: Z statistic.
+                Zpval: P-value calculated from Z.
+                KS: Kolmogorov-Smirnov statistic.
+                KSpval: p-value calculated from KS.
+        '''
         
         assert niter >= 1, "at least one iteration is required."
 
@@ -277,7 +307,7 @@ class RankTable(object):
         pgen = ((i, j) for i in dtab.index for j in dtab.columns)
         if progress: pgen = tqdm(pgen, total = dtab.shape[0] * dtab.shape[1])
         for (i, j) in pgen:
-            Z, Zpval, KS, KSpval = RankTable.calc_comparison_test_p_value(
+            Z, Zpval, KS, KSpval = RankTable.compare_to_rand_distr(
                 dtab.loc[i, j], [d.loc[i, j] for d in rand_distr])
             Z_df.loc[i, j] = Z
             Zpval_df.loc[i, j] = Zpval
@@ -285,12 +315,10 @@ class RankTable(object):
             KSpval_df.loc[i, j] = KSpval
 
         return({
+            "dist" : dtab, "random_distribution" : rand_distr,
             "Z" : Z_df, "Zpval" : Zpval_df,
             "KS" : KS_df, "KSpval" : KSpval_df
         })
-
-
-
 
     def calc_KendallTau(self, b, *args, **kwargs):
         '''Calculate the Kendall Tau distance between all the MetricTables in
