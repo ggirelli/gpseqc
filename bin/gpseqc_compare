@@ -44,14 +44,21 @@
 # DEPENDENCIES =================================================================
 
 import argparse
+import datetime
+from matplotlib import pyplot as pp
+from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import os
+import pickle
 import sys
+from tqdm import tqdm
 
-from ggc.args import check_threads
+from ggc.args import check_threads, export_settings
 from ggc.prompt import ask
 
 from gpseqc.compare import RankTable, MetricTable
+from gpseqc.compare import dKT_iter, dKTw_iter
+from gpseqc.compare import plot_comparison, plot_heatmap
 
 # PARAMETERS ===================================================================
 
@@ -76,43 +83,46 @@ Notes:
 
 # Add mandatory arguments
 parser.add_argument('rank1', type = str,
-	help = '''Path to first ranking table ("estimated" table generated with
-	gpseqc_estimate).''')
+    help = '''Path to first ranking table ("estimated" table generated with
+    gpseqc_estimate).''')
 parser.add_argument('rank2', type = str,
-	help = '''Path to second ranking table ("estimated" table generated with
-	gpseqc_estimate).''')
+    help = '''Path to second ranking table ("estimated" table generated with
+    gpseqc_estimate).''')
 
 # Add arguments with default value
 parser.add_argument('-o', '--outdir', type = str, metavar = 'outdir',
-	default = '.', help = """Path to output directory, created if missing.
-	Defaults to current directory.""")
+    default = '.', help = """Path to output directory, created if missing.
+    Defaults to current directory.""")
 parser.add_argument('-d', '--dist', type = str, metavar = 'dist',
-	help = """Whether 'kt' (Kendall tau) or 'ktw' (Kendall tau weighted).
-	Default: 'ktw'""", choices = ['kt', 'ktw'], default = 'ktw')
+    help = """Whether 'kt' (Kendall tau) or 'ktw' (Kendall tau weighted).
+    Default: 'ktw'""", choices = ['kt', 'ktw'], default = 'ktw')
 parser.add_argument('-n', '--niter', type = int, metavar = 'niter',
-	default = 5000, help = """Number of iterations to build the random
-	distribution. Default: 5000""")
+    default = 5000, help = """Number of iterations to build the random
+    distribution. Default: 5000""")
 parser.add_argument('-t', '--threads', type = int, metavar = "threads",
-	default = 1,
-	help = """Number of threads for parallelization. Default: 1""")
+    default = 1,
+    help = """Number of threads for parallelization. Default: 1""")
 parser.add_argument('-D', '--delim', type = str, metavar = 'delim',
-	help = """Ranking file field delimiter. Default: TAB""", default = '\t')
+    help = """Ranking file field delimiter. Default: TAB""", default = '\t')
 parser.add_argument('-p', '--prefix', type = str, metavar = 'text',
-	default = '', help = """Text for output file name prefix.""")
+    default = '', help = """Text for output file name prefix.""")
 parser.add_argument('-s', '--suffix', type = str, metavar = 'text',
-	default = '', help = """Text for output file name suffix.""")
+    default = '', help = """Text for output file name suffix.""")
 parser.add_argument('-S', '--seed', type = int, metavar = 'seed',
-	default = None, help = """Seed for random number generator.""")
+    default = None, help = """Seed for random number generator.""")
 
 # Flags
 parser.add_argument('-y', '--do-all', action = 'store_const',
-	help = """Do not ask for settings confirmation and proceed.""",
-	const = True, default = False)
+    help = """Do not ask for settings confirmation and proceed.""",
+    const = True, default = False)
+parser.add_argument('--no-test', action = 'store_const',
+    help = """Do not calculate p-values, only distances.""",
+    const = True, default = False)
 
 # Version flag
 version = "2.0.0"
 parser.add_argument('--version', action = 'version',
-	version = '%s v%s' % (sys.argv[0], version,))
+    version = '%s v%s' % (sys.argv[0], version,))
 
 # Parse arguments
 args = parser.parse_args()
@@ -133,50 +143,53 @@ if not os.path.isdir(args.outdir): os.mkdir(args.outdir)
 
 # Adjust prefix/suffix if needed
 if 0 != len(args.prefix):
-	if '.' != args.prefix[-1]: args.prefix += '.'
+    if '.' != args.prefix[-1]: args.prefix += '.'
 if 0 != len(args.suffix):
-	if '.' != args.suffix[0]: args.suffix = '.' + args.suffix
+    if '.' != args.suffix[0]: args.suffix = '.' + args.suffix
 
 if not type(None) == type(args.seed):
-	np.random.seed(args.seed)
+    np.random.seed(args.seed)
 
 # FUNCTION =====================================================================
 
 def print_settings(args, clear = True):
-	'''Show input settings, for confirmation.
+    '''Show input settings, for confirmation.
 
-	Args:
-		args (Namespace): arguments parsed by argparse.
-		clear (bool): clear screen before printing.
-	'''
-	s = " # GPSeqC - Ranking comparison\n\n"
+    Args:
+        args (Namespace): arguments parsed by argparse.
+        clear (bool): clear screen before printing.
+    '''
+    s = " # GPSeqC - Ranking comparison\n\n"
 
-	s += " 1st rank : %s\n" % args.rank1
-	s += " 2nd rank : %s\n" % args.rank2
+    s += " 1st rank : %s\n" % args.rank1
+    s += " 2nd rank : %s\n" % args.rank2
 
-	s += "\n Distance : %s\n" % args.dist
-	s += "    nIter : %d\n" % args.niter
-	s += "  Threads : %d\n" % args.threads
+    s += "\n Distance : %s\n" % args.dist
+    s += "    nIter : %d\n" % args.niter
+    s += "  Threads : %d\n" % args.threads
 
-	s += "\n    Delim : '%s'\n" % args.delim
-	if 0 != len(args.prefix): s += "   Prefix : '%s'\n" % args.prefix
-	if 0 != len(args.suffix): s += "   Suffix : '%s'\n" % args.suffix
+    s += "\n    Delim : '%s'\n" % args.delim
+    if 0 != len(args.prefix): s += "   Prefix : '%s'\n" % args.prefix
+    if 0 != len(args.suffix): s += "   Suffix : '%s'\n" % args.suffix
 
-	if type(None) != type(args.seed):
-		s += "\n  Seed : %d\n" % args.seed
+    if type(None) != type(args.seed):
+        s += "\n  Seed : %d\n" % args.seed
 
-	if clear: print("\033[H\033[J%s" % s)
-	else: print(s)
-	return(s)
+    if clear: print("\033[H\033[J%s" % s)
+    else: print(s)
+    return(s)
 
 # RUN ==========================================================================
 
 ssettings = print_settings(args)
 if not args.do_all: ask("Confirm settings and proceed?")
 
+args.suffix = ".rank_cmp.%s.%dniter%s" % (args.dist, args.niter, args.suffix)
+
 # Save confirmed settings
 with open(os.path.join(args.outdir, "%ssettings%s.txt" % (
-	args.prefix, args.suffix)), "w+") as OH: OH.write(ssettings)
+    args.prefix, args.suffix)), "w+") as OH:
+    export_settings(OH, ssettings)
 
 # Read ranking tables
 print("Reading and parsing rank tables...")
@@ -190,23 +203,72 @@ assert 0 != len(r1), "empty table left after subsetting."
 r2 = r2.intersection(r1)
 assert 0 != len(r2), "empty table left after subsetting."
 
-# Calculate distance
-print("Testing Kendall tau distance...")
-print(r1[0].dKT(r1[1], progress = True))
+# Distance label and function
+dfun = dKTw_iter if "ktw" == args.dist else dKT_iter
+dlabel = "Kendall tau distance"
+dlabel = dlabel if "kt" == args.dist else "Weighted %s" % dlabel
 
-print("Testing weighted Kendall tau distance...")
-print(r1[0].dKTw(r1[1], progress = True))
+if args.no_test:
+    print("Calculating distance...")
+    dout = r1.compare(r2, dfun, args.niter, skipSubset = True, progress = True,
+        threads = args.threads)
 
-print("Comparing rank tables (KTw)...")
-print(r1.dKTw(r2, skipSubset = True, progress = True, threads = args.threads))
+    # Export DataFrames
+    print("Exporting tsv tables...")
+    path_tuple = (args.outdir, args.prefix, args.suffix)
+    dout["dist"].to_csv("%s/%sdist_table%s.tsv" % path_tuple, sep = args.delim)
 
-#print("Building random distribution (KTw)...")
-#print(r1.build_rand_distr(r2, skipSubset = True,
-#	progress = True, threads = args.threads))
+    # Plot
+    plot_heatmap(dout["dist"], [0, .5, 1], dlabel,
+        outpath = "%s/%sdist%s.pdf" % path_tuple)
 
-print("Running comparison test...")
-print(r1.test_comparison(r2, skipSubset = True, progress = True,
-	threads = args.threads))
+else: # Run comparison test
+    print("Running comparison test...")
+    dout = r1.test_comparison(r2, dfun, args.niter, skipSubset = True,
+        progress = True, threads = args.threads)
+
+    # Export DataFrames --------------------------------------------------------
+    print("Exporting tsv tables...")
+
+    path_tuple = (args.outdir, args.prefix, args.suffix)
+    dout["dist"].to_csv(
+        "%s/%sdist_table%s.tsv" % path_tuple, sep = args.delim)
+    dout["Z"].to_csv(
+        "%s/%sZ_table%s.tsv" % path_tuple, sep = args.delim)
+    dout["Zpval"].to_csv(
+        "%s/%sZpval_table%s.tsv" % path_tuple, sep = args.delim)
+    dout["KS"].to_csv(
+        "%s/%sKS_table%s.tsv" % path_tuple, sep = args.delim)
+    dout["KSpval"].to_csv(
+        "%s/%sKSpval_table%s.tsv" % path_tuple, sep = args.delim)
+    with open("%s/%soutput%s.pickle" % path_tuple, "wb") as OH:
+        pickle.dump(dout, OH)
+
+    # Plot ---------------------------------------------------------------------
+    print("Plotting...")
+
+    # Single comparison plots with Gaussian fit
+    outpdf = PdfPages("%s/%snorm%s.pdf" % path_tuple)
+    pgen = ((i, j) for i in dout["dist"].index for j in dout["dist"].columns)
+    pgen = tqdm(pgen, total = dout["dist"].shape[0] * dout["dist"].shape[1])
+    for (i, j) in pgen:
+        title = "R1: $\\bf{%s}$; R2: $\\bf{%s}$\nKS: %.6f; KS p.val: %.2E" % (
+                i, j, dout["KS"].loc[i, j], dout["KSpval"].loc[i, j])
+        title += "\nn.perm=%d; Z = %.6f; p.val: %.2E;" % (
+                args.niter, dout["Z"].loc[i, j], dout["Zpval"].loc[i, j])
+        plot_comparison(dout["dist"].loc[i, j],
+            [d.loc[i, j] for d in dout["random_distribution"]],
+            title, dlabel).savefig(outpdf, format = 'pdf')
+    outpdf.close()
+    pp.close('all')
+
+    # Recap heatmaps
+    plot_heatmap(dout["dist"], [0, .5, 1], dlabel,
+        outpath = "%s/%sdist%s.pdf" % path_tuple)
+    plot_heatmap(dout["Zpval"], [0, 0.01, 0.05], "Distance p-value",
+        outpath = "%s/%sZpval%s.pdf" % path_tuple)
+    plot_heatmap(dout["KSpval"], [0, 0.01, 0.05], "KS p-value",
+        outpath = "%s/%sKSpval%s.pdf" % path_tuple)
 
 # End --------------------------------------------------------------------------
 

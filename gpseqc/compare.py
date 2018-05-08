@@ -9,6 +9,7 @@
 # DEPENDENCIES =================================================================
 
 from joblib import Parallel, delayed
+from matplotlib import pyplot as pp
 import numpy as np
 import os
 import pandas as pd
@@ -226,13 +227,19 @@ class RankTable(object):
 
         # Build iteration generator
         igen = (i for i in range(niter))
-        if progress: igen = tqdm(igen, total = niter)
 
-        # Calculate distance table after niter shuffles
-        ds = []
-        for i in igen:
-            ds.append(self.shuffle().compare(b.shuffle(),
-                dfun, skipSubset, threads = threads))
+        if 1 == threads:
+            if progress: igen = tqdm(igen, total = niter)
+
+            # Calculate distance table after niter shuffles
+            ds = []
+            for i in igen:
+                ds.append(self.shuffle().compare(b.shuffle(), dfun, skipSubset))
+        else: # Parallelized
+            ds = Parallel(n_jobs = threads, verbose = 11 if progress else 0)(
+                delayed(compareNshuffle)(a = a, b = b,
+                    dfun = dfun, skipSubset = skipSubset)
+                for i in igen)
 
         return(ds)
 
@@ -254,8 +261,8 @@ class RankTable(object):
         # Calculate significance
         Z = (d - mu) / sigma
         Zpval = norm.cdf(d, mu, sigma)
-        if .5 < pval: pval = 1 - pval
-        pval *= 2
+        if .5 < Zpval: Zpval = 1 - Zpval
+        Zpval *= 2
 
         # Calculate goodness-of-fit
         obs = np.histogram(rand_distr, bins = 100, density = True)[0]
@@ -365,6 +372,9 @@ def dKT_iter(aidx, bidx, a, b):
 
 def dKTw_iter(aidx, bidx, a, b):
     return a[aidx].dKTw(b[bidx])
+
+def compareNshuffle(a, b, dfun, skipSubset, *args, **kwargs):
+    return a.shuffle().compare(b.shuffle(), dfun, skipSubset)
 
 
 class MetricTable(object):
@@ -665,6 +675,101 @@ class MetricTable(object):
         '''Alias for calc_KendallTau_weighted.'''
         return self.calc_KendallTau_weighted(*args, **kwargs)
 
+
+def plot_comparison(d, rand_distr, title, xlab):
+    '''
+    Single study plot.
+
+    Args:
+        d (float): calculated distance.
+        rand_distr (list): random distribution of distances.
+        title (str): plot title.
+        xlab (str): X-axis label.
+    
+    Returns:
+        Figure: plot figure.
+    '''
+
+    # Prepare empty plot window
+    fig, ax = pp.subplots()
+
+    # Fit Gaussian
+    mu, sigma = norm.fit(rand_distr)
+
+    # Plot histogram
+    ax.hist(rand_distr, 40, density = True, color = '#fddbc7')
+
+    # Overlay gaussian
+    x = np.linspace(0, 1, 1000)
+    ax.plot(x, norm.pdf(x, loc = mu, scale = sigma),
+        linestyle = '--', color = '#ef8a62', linewidth = 2)
+
+    # Add significance thresholds
+    ax.axvline((norm.ppf(.005) * sigma) + mu,
+        color = '#2166ac', linewidth = 1.5)
+    ax.axvline((norm.ppf(.025) * sigma) + mu,
+        color = '#67a9cf', linewidth = 1.5)
+    ax.axvline((norm.ppf(1 - .005) * sigma) + mu,
+        color = '#2166ac', linewidth = 1.5)
+    ax.axvline((norm.ppf(1 - .025) * sigma) + mu,
+        color = '#67a9cf', linewidth = 1.5)
+
+    # Add current distance
+    ax.axvline(d, linestyle = ':', color = '#b2182b', linewidth = 2)
+
+    # Layout format
+    pp.xlim(0,1)
+    pp.xlabel(xlab)
+    pp.ylabel('Frequency')
+    pp.suptitle("", fontsize = 11)
+    pp.title(title, fontsize = 8)
+    pp.subplots_adjust(left = 0.1, right = 0.95, top = 0.85, bottom = 0.1)
+
+    # Output figure
+    return(fig)
+
+def plot_heatmap(data, ticks, cb_lab, outpath = None):
+    '''Plot heatmap.
+
+    Args:
+        data (pd.DataFrame): matrix for heatmap.
+        ticks (list): list of colorbar tick values, used for heatmap vlims.
+        cb_lab (str): colorbar label.
+        outpath (str): path to output pdf.
+
+    Returns:
+        Figure: heatmap figure canvas.
+    '''
+
+    # Create emtpy figure canvas
+    fig, ax = pp.subplots()
+
+    # Plot heatmap
+    cax = pp.imshow(data, cmap='hot',
+        interpolation='nearest', vmin = ticks[0], vmax = ticks[-1])
+
+    # Add colorbar
+    cbar = fig.colorbar(cax, ticks = ticks, extend = "both")
+    cbar.set_label(cb_lab)
+    cbar.ax.tick_params(labelsize = 6)
+
+    # Adjust plot parameters
+    pp.xticks(range(len(data.columns)), data.columns,
+        rotation='vertical', fontsize = 6)
+    pp.yticks(range(len(data.index)), data.index, fontsize = 6)
+    pp.subplots_adjust(left = 0.25, right = 0.95, top = 0.95, bottom = 0.25)
+
+    if type(None) != type(outpath):
+        if os.path.isdir(os.path.dirname(outpath)):
+            outpath = os.path.splitext(outpath)
+            if outpath[-1] != ".pdf": outpath[-1] = ".pdf"
+            outpath = "".join(outpath)
+
+            fig.savefig(outpath, format = 'pdf')
+            pp.close('all')
+
+    # Output
+    return(fig)
 
 # END ==========================================================================
 
