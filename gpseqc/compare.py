@@ -19,6 +19,8 @@ from tqdm import tqdm
 from ggc.args import check_threads
 from gpseqc.centrality import CMETRICS
 
+import time
+
 # FUNCTIONS ====================================================================
 
 
@@ -525,6 +527,24 @@ class MetricTable(object):
         a = self
         if not skipSubset: a, b = a._subset(b)
 
+        tinit = time.time()
+
+        rsize = len(a)
+        pairs_gen = ((a._all_regions()[i], a._all_regions()[j]) for i in range(rsize) for j in range(i + 1, rsize))
+        print(time.time() - tinit)
+
+        aregs = a._all_regions()
+        bmatched = dict((b._all_regions()[i], b.mcol[i]) for i in range(len(b)))
+        print(time.time() - tinit)
+
+        n = sum([bmatched[i] > bmatched[j] for (i, j) in tqdm(pairs_gen, total = )])
+        print(time.time() - tinit)
+
+        d1 = 2 * n / (rsize * (rsize - 1))
+
+        tspent1 = time.time() - tinit
+        tinit = time.time()
+
         # Count number of discordant pairs -------------------------------------
         n = 0
         bset = set()            # Growing set of regions in B
@@ -546,6 +566,8 @@ class MetricTable(object):
 
         # Normalize
         d = n / (len(a) * (len(a) - 1) / 2.)
+
+        print((len(a), d1, tspent1, d, time.time() - tinit))
 
         # Output
         return d
