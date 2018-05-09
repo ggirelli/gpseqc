@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
+### ...
+
+
+
+### [2.0.3] - 2018-05-09
 ### Added
 - `CMETRICS` constant to `gpseqc_estimate` with lambda functions to calculate centrality metrics.
 - `RankTable` class to `comparison.py`.
