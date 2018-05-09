@@ -527,47 +527,16 @@ class MetricTable(object):
         a = self
         if not skipSubset: a, b = a._subset(b)
 
-        tinit = time.time()
-
-        rsize = len(a)
-        pairs_gen = ((a._all_regions()[i], a._all_regions()[j]) for i in range(rsize) for j in range(i + 1, rsize))
-        print(time.time() - tinit)
-
-        aregs = a._all_regions()
-        bmatched = dict((b._all_regions()[i], b.mcol[i]) for i in range(len(b)))
-        print(time.time() - tinit)
-
-        n = sum([bmatched[i] > bmatched[j] for (i, j) in tqdm(pairs_gen, total = )])
-        print(time.time() - tinit)
-
-        d1 = 2 * n / (rsize * (rsize - 1))
-
-        tspent1 = time.time() - tinit
-        tinit = time.time()
-
-        # Count number of discordant pairs -------------------------------------
+        # For each pair of ordered elements in a, if their ordered is inverted
+        # in b, then count it. Divide the count by the number of couples.
+        rsize = len(a) # Store in a variable for simplicity
+        blist = [a._all_regions().index(r) for r in b.iter_regions()]
         n = 0
-        bset = set()            # Growing set of regions in B
-        regs = a._all_regions() # Regions in A
-
-        # Prepare regions generator
-        igen = range(len(b))
-        if progress: igen = tqdm(igen)
-
-        # For each region in B, identify the regions with higher rank in A
-        # and B and find the intersection between the two sets. The union
-        # minus the intersection of the two sets is the number of discordant
-        # pairs needed to calculate the Kendall tau distance.
-        for i in igen:
-            breg = tuple(b[i].iloc[:3].tolist())
-            bset.add(breg)
-            aset = set(regs[:(regs.index(breg) + 1)])
-            n += len(aset) - len(bset.intersection(aset))
-
-        # Normalize
-        d = n / (len(a) * (len(a) - 1) / 2.)
-
-        print((len(a), d1, tspent1, d, time.time() - tinit))
+        for i in range(rsize):
+            for j in range(i + 1, rsize):
+                if blist[i] > blist[j]:
+                    n += 1
+        d = n / ((rsize * (rsize - 1)) / 2)
 
         # Output
         return d
@@ -588,6 +557,44 @@ class MetricTable(object):
         # Apply subsetting if needed
         a = self
         if not skipSubset: a, b = a._subset(b)
+
+        tinit = time.time()
+        rsize = len(a) # Store in a variable for simplicity
+
+        # Calculate denominators
+        pgen = ((i, j) for i in range(rsize) for j in range(i + 1, rsize))
+
+        Dn1 = 0
+        Dn2 = 0
+        for i in tqdm(range(rsize)):
+            for j in range(i + 1, rsize):
+                Dn1 += np.absolute(a.mcol[i] - a.mcol[j])
+                Dn2 += np.absolute(b.mcol[i] - b.mcol[j])
+        Dn1 = 1 if 0 == Dn1 else Dn1
+        Dn2 = 1 if 0 == Dn2 else Dn2
+        print(time.time()-tinit)
+
+        blist = [b.mcol[b._all_regions().index(r)] for r in a.iter_regions()]
+        print(time.time()-tinit)
+
+        w = 0   # Weight of discordant pairs
+        t = 0   # Total weight for normalization
+        for i in range(rsize):
+            for j in range(i + 1, rsize):
+                wtmp  = np.absolute(a.mcol[i] - a.mcol[j]) / Dn1
+                wtmp += np.absolute(b.mcol[i] - b.mcol[j]) / Dn2
+                wtmp /= 2
+
+                t += wtmp
+                if blist[i] > blist[j]:
+                    w += wtmp
+        print(time.time()-tinit)
+
+        d1 = w / t
+
+        tspent1 = time.time()-tinit
+
+        tinit = time.time()
 
         # Count number of discordant pairs -------------------------------------
         n = 0
@@ -687,6 +694,9 @@ class MetricTable(object):
 
         # Normalize
         d /= w
+
+        print((len(a), d1, tspent1, d, time.time()-tinit))
+        import sys; sys.exit()
 
         # Output
         return d
