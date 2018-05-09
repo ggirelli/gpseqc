@@ -35,6 +35,7 @@
 # Description: estimate region centrality from GPSeq sequencing data.
 # 
 # Changelog:
+#   v2.0.7 - 20180509: fixed typo.
 #   v2.0.6 - 20180508: using ggc for settings export.
 #   v2.0.5 - 20180502: added Python version to settings file.
 #   v2.0.4 - 20180429: added command line, timestamp and version tag
@@ -385,7 +386,7 @@ print("Generating bins...")
 
 if not type(None) == type(args.bin_bed):
 	# Custom bins
-	bins = pbt.BedTool(args.bin_bed[0])
+	bins = pbt.BedTool(args.bin_bed)
 elif 0 == args.bin_size and type(None) == type(args.bin_bed):
 	# Chromosome-wide bins
 	s = "\n".join(["%s\t%d\t%d\t" % (c, 0, e) for (c, e) in chr_sizes.items()])

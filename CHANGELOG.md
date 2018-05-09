@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 - `-y` option now working in `gpseqc_estimate`.
+- Typo in `gpseqc_estimate`.
 
 
 
