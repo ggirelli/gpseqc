@@ -18,6 +18,8 @@ cd gpseqc
 sudo -H pip3 install .
 ```
 
+To **test** your installation, run: `pytest --pyargs gpseqc`.
+
 To **uninstall** run the following from within the repository folder:
 
 ```
