@@ -235,6 +235,7 @@ class RankTable(object):
             ds = []
             for i in igen:
                 ds.append(self.shuffle().compare(b.shuffle(), dfun, skipSubset))
+
         else: # Parallelized
             ds = Parallel(n_jobs = threads, verbose = 11 if progress else 0)(
                 delayed(compareNshuffle)(a = a, b = b,

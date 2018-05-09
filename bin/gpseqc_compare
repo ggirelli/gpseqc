@@ -118,6 +118,9 @@ parser.add_argument('-y', '--do-all', action = 'store_const',
 parser.add_argument('--no-test', action = 'store_const',
     help = """Do not calculate p-values, only distances.""",
     const = True, default = False)
+parser.add_argument('--no-plot', action = 'store_const',
+    help = """Do not generate any plots.""",
+    const = True, default = False)
 
 # Version flag
 version = "2.0.0"
@@ -218,9 +221,10 @@ if args.no_test:
     path_tuple = (args.outdir, args.prefix, args.suffix)
     dout["dist"].to_csv("%s/%sdist_table%s.tsv" % path_tuple, sep = args.delim)
 
-    # Plot
-    plot_heatmap(dout["dist"], [0, .5, 1], dlabel,
-        outpath = "%s/%sdist%s.pdf" % path_tuple)
+    if not args.no_plot:
+        # Plot
+        plot_heatmap(dout["dist"], [0, .5, 1], dlabel,
+            outpath = "%s/%sdist%s.pdf" % path_tuple)
 
 else: # Run comparison test
     print("Running comparison test...")
@@ -244,31 +248,34 @@ else: # Run comparison test
     with open("%s/%soutput%s.pickle" % path_tuple, "wb") as OH:
         pickle.dump(dout, OH)
 
-    # Plot ---------------------------------------------------------------------
-    print("Plotting...")
+    if not args.no_plot:
+        # Plot ---------------------------------------------------------------------
+        print("Plotting...")
 
-    # Single comparison plots with Gaussian fit
-    outpdf = PdfPages("%s/%snorm%s.pdf" % path_tuple)
-    pgen = ((i, j) for i in dout["dist"].index for j in dout["dist"].columns)
-    pgen = tqdm(pgen, total = dout["dist"].shape[0] * dout["dist"].shape[1])
-    for (i, j) in pgen:
-        title = "R1: $\\bf{%s}$; R2: $\\bf{%s}$\nKS: %.6f; KS p.val: %.2E" % (
-                i, j, dout["KS"].loc[i, j], dout["KSpval"].loc[i, j])
-        title += "\nn.perm=%d; Z = %.6f; p.val: %.2E;" % (
-                args.niter, dout["Z"].loc[i, j], dout["Zpval"].loc[i, j])
-        plot_comparison(dout["dist"].loc[i, j],
-            [d.loc[i, j] for d in dout["random_distribution"]],
-            title, dlabel).savefig(outpdf, format = 'pdf')
-    outpdf.close()
-    pp.close('all')
+        # Single comparison plots with Gaussian fit
+        outpdf = PdfPages("%s/%snorm%s.pdf" % path_tuple)
+        pgen = ((i, j) for i in dout["dist"].index
+            for j in dout["dist"].columns)
+        pgen = tqdm(pgen, total = dout["dist"].shape[0] * dout["dist"].shape[1])
+        for (i, j) in pgen:
+            title = "R1: $\\bf{%s}$; R2: $\\bf{%s}$" % (i, j)
+            title += "\nKS: %.6f; KS p.val: %.2E" % (
+                dout["KS"].loc[i, j], dout["KSpval"].loc[i, j])
+            title += "\nn.perm=%d; Z = %.6f; p.val: %.2E;" % (
+                    args.niter, dout["Z"].loc[i, j], dout["Zpval"].loc[i, j])
+            plot_comparison(dout["dist"].loc[i, j],
+                [d.loc[i, j] for d in dout["random_distribution"]],
+                title, dlabel).savefig(outpdf, format = 'pdf')
+        outpdf.close()
+        pp.close('all')
 
-    # Recap heatmaps
-    plot_heatmap(dout["dist"], [0, .5, 1], dlabel,
-        outpath = "%s/%sdist%s.pdf" % path_tuple)
-    plot_heatmap(dout["Zpval"], [0, 0.01, 0.05], "Distance p-value",
-        outpath = "%s/%sZpval%s.pdf" % path_tuple)
-    plot_heatmap(dout["KSpval"], [0, 0.01, 0.05], "KS p-value",
-        outpath = "%s/%sKSpval%s.pdf" % path_tuple)
+        # Recap heatmaps
+        plot_heatmap(dout["dist"], [0, .5, 1], dlabel,
+            outpath = "%s/%sdist%s.pdf" % path_tuple)
+        plot_heatmap(dout["Zpval"], [0, 0.01, 0.05], "Distance p-value",
+            outpath = "%s/%sZpval%s.pdf" % path_tuple)
+        plot_heatmap(dout["KSpval"], [0, 0.01, 0.05], "KS p-value",
+            outpath = "%s/%sKSpval%s.pdf" % path_tuple)
 
 # End --------------------------------------------------------------------------
 
