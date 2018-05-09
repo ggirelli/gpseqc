@@ -129,6 +129,12 @@ class RankTable(object):
         from the first (self). Same as self & b.'''
         return self & b
 
+    def _subset(self, b):
+        '''Returns intersection of A with B and B with A.'''
+        a = self.intersection(b)
+        b = b.intersection(a)
+        return(a, b)
+
     def shuffle(self):
         '''Shuffles the regions of a RankTable.
 
@@ -162,11 +168,8 @@ class RankTable(object):
         threads = check_threads(threads)
 
         # Apply subsetting if needed
-        if not skipSubset:
-            a = self.intersection(b)
-            b = b.intersection(a)
-        else:
-            a = self
+        a = self
+        if not skipSubset: a, b = a._subset(b)
 
         # Run comparison -------------------------------------------------------
         
@@ -217,11 +220,8 @@ class RankTable(object):
         threads = check_threads(threads)
 
         # Apply subsetting if needed
-        if not skipSubset:
-            a = self.intersection(b)
-            b = b.intersection(a)
-        else:
-            a = self
+        a = self
+        if not skipSubset: a, b = a._subset(b)
 
         # Build random distribution --------------------------------------------
 
@@ -305,11 +305,8 @@ class RankTable(object):
         threads = check_threads(threads)
 
         # Apply subsetting if needed
-        if not skipSubset:
-            a = self.intersection(b)
-            b = b.intersection(a)
-        else:
-            a = self
+        a = self
+        if not skipSubset: a, b = a._subset(b)
 
         # Compare --------------------------------------------------------------
 
@@ -496,6 +493,12 @@ class MetricTable(object):
         rankings from the first (self). Same as self & b.'''
         return self & b
 
+    def _subset(self, b):
+        '''Returns intersection of A with B and B with A.'''
+        a = self.intersection(b)
+        b = b.intersection(a)
+        return(a, b)
+
     def shuffle(self):
         '''Shuffles the regions of a MetricTable.
 
@@ -519,11 +522,8 @@ class MetricTable(object):
         '''
 
         # Apply subsetting if needed
-        if not skipSubset:
-            a = self.intersection(b)
-            b = b.intersection(a)
-        else:
-            a = self
+        a = self
+        if not skipSubset: a, b = a._subset(b)
 
         # Count number of discordant pairs -------------------------------------
         n = 0
@@ -564,11 +564,8 @@ class MetricTable(object):
         '''
 
         # Apply subsetting if needed
-        if not skipSubset:
-            a = self.intersection(b)
-            b = b.intersection(self)
-        else:
-            a = self
+        a = self
+        if not skipSubset: a, b = a._subset(b)
 
         # Count number of discordant pairs -------------------------------------
         n = 0
