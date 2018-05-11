@@ -558,7 +558,6 @@ class MetricTable(object):
         a = self
         if not skipSubset: a, b = a._subset(b)
 
-        tinit = time.time()
         rsize = len(a) # Store in a variable for simplicity
 
         # Calculate denominators
@@ -572,10 +571,8 @@ class MetricTable(object):
                 Dn2 += np.absolute(b.mcol[i] - b.mcol[j])
         Dn1 = 1 if 0 == Dn1 else Dn1
         Dn2 = 1 if 0 == Dn2 else Dn2
-        print(time.time()-tinit)
 
         blist = [b.mcol[b._all_regions().index(r)] for r in a.iter_regions()]
-        print(time.time()-tinit)
 
         w = 0   # Weight of discordant pairs
         t = 0   # Total weight for normalization
@@ -588,115 +585,9 @@ class MetricTable(object):
                 t += wtmp
                 if blist[i] > blist[j]:
                     w += wtmp
-        print(time.time()-tinit)
 
-        d1 = w / t
-
-        tspent1 = time.time()-tinit
-
-        tinit = time.time()
-
-        # Count number of discordant pairs -------------------------------------
-        n = 0
-        w = 0
-        d = 0
-        bset = set()
-
-        bregs = b._all_regions()
-        bdregs = dict([(bregs[i], b[i].iloc[3]) for i in range(len(b))])
-        aregs = a._all_regions()
-        adregs = dict([(aregs[i], a[i].iloc[3]) for i in range(len(a))])
-
-        # Prepare regions generator
-        igen = range(len(b))
-        if progress: igen = tqdm(igen)
-
-        def calcLowerBoundWeight(reg, rset, dregs):
-            '''Calculate weight when reg has higher weight.
-
-            Args:
-              reg (tuple): bed region (chrom, start, end).
-              rset (set): set of regions with weight lower than reg's.
-              dregs (dict): (region, weight) dictionary.
-            '''
-            w = np.array([dregs[r] for r in rset])
-            nan_cond = w == 0
-            if 0 != sum(nan_cond): w[nan_cond] = np.nan
-            return np.absolute((w - dregs[reg]) / w)
-        
-        def calcHigherBoundWeight(reg, rset, dregs):
-            '''Calculate weight when reg has lower weight.
-
-            Args:
-              reg (tuple): bed region (chrom, start, end).
-              rset (set): set of regions with weight higher than reg's.
-              dregs (dict): (region, weight) dictionary.
-            '''
-            w = np.array([dregs[r] for r in rset])
-            if dregs[reg] == 0: return np.nan
-            return np.absolute((w - dregs[reg]) / dregs[reg])
-
-        def calcTotalWeight(r, aset, bset, aregs, bregs, adregs, bdregs):
-            '''Calculate total weight between two sets, for normalization.
-
-            Args:
-              r (tuple): (chrom, start, end).
-              aset/bset (set): regions set.
-              aregs/bregs (list): list of regions.
-              adregs/bdregs (dict): (list, estimate) dictionary.
-
-            Returns:
-              float
-            '''
-            w  = np.nansum(calcLowerBoundWeight(r, bset, bdregs))
-            w += np.nansum(calcHigherBoundWeight(r, set(bregs) - bset, bdregs))
-            w += np.nansum(calcLowerBoundWeight(r, aset, adregs))
-            w += np.nansum(calcHigherBoundWeight(r, set(aregs) - aset, adregs))
-            w /= 2
-            return w
-
-        def calcDiscordantWeight(r, aset, bset, iset, adregs, bdregs):
-            '''Calculate weight between discordant pairs in two sets.
-
-            Args:
-              r (tuple): (chrom, start, end).
-              aset/bset (set): regions set.
-              iset (set): intersection between aset and bset.
-              adregs/bdregs (dict): (list, estimate) dictionary.
-
-            Returns:
-              float
-            '''
-            wbl = calcLowerBoundWeight(r, bset - iset, bdregs)
-            wal = calcLowerBoundWeight(r, aset - iset, adregs)
-            return np.sum([np.nansum(x) for x in [wal, wbl]]) / 2
-
-        # For each region in B, identify the regions with higher rank in A
-        # and B and find the intersection between the two sets. The union
-        # minus the intersection of the two sets is the number of discordant
-        # pairs needed to calculate the Kendall tau distance.
-        # 
-        # In the weighted approach, retain the estimated centrality of each
-        # region and use it as weight. As the table is ranked from peripheral to
-        # central (increasing estimate value) the current (i-th) metric will
-        # always be greater than or equal to any other in the set.
-        for i in igen:
-            breg = tuple(b[i].iloc[:3].tolist())
-            bset.add(breg)
-
-            aidx = aregs.index(breg)
-            aset = set(aregs[:(aidx + 1)])
-            iset = aset.intersection(bset)
-
-            n += (aidx + 1) - len(iset)
-            w += calcTotalWeight(breg, aset, bset, aregs, bregs, adregs, bdregs)
-            d += calcDiscordantWeight(breg, aset, bset, iset, adregs, bdregs)
-
-        # Normalize
-        d /= w
-
-        print((len(a), d1, tspent1, d, time.time()-tinit))
-        import sys; sys.exit()
+        t *= 2
+        d = w / t
 
         # Output
         return d
