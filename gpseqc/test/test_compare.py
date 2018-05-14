@@ -70,7 +70,7 @@ def test_MetricTable_KendallTau_weighted():
     mt1 = rt1[0]
     mt2 = rt1[1]
     assert 0 == mt1.dKTw(mt1)
-    assert 0.18196 == np.round(mt1.dKTw(mt2), 5)
+    assert 0.5101 == np.round(mt1.dKTw(mt2), 4)
 
 # END ==========================================================================
 
