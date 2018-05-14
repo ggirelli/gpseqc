@@ -267,8 +267,8 @@ else: # Run comparison test
             plot_comparison(dout["dist"].loc[i, j],
                 [d.loc[i, j] for d in dout["random_distribution"]],
                 title, dlabel).savefig(outpdf, format = 'pdf')
+            pp.close('all')
         outpdf.close()
-        pp.close('all')
 
         # Recap heatmaps
         plot_heatmap(dout["dist"], [0, .5, 1], dlabel,
