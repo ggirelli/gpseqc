@@ -159,7 +159,7 @@ class RankTable(object):
         '''
         df = self._df.copy()
         a = np.array(self._all_regions())
-        np.random.shuffle(a)
+        a = a[np.random.permutation(len(a))]
         df.iloc[:, :3] = a
         return RankTable(df = df)
 
@@ -362,12 +362,17 @@ def dKT_iter(aidx, bidx, a, b, shuffle = False):
         a, b (RankTable).
         shuffle (bool): shuffle metrics before comparing them.
     '''
-    a = np.array(a._all_regions())
-    b = np.array(b._all_regions())
+    a_regions = a._all_regions()
+    a = [a_regions[i] for i in np.argsort(a._df.iloc[:, aidx + 3].values)]
+    b_regions = b._all_regions()
+    b = [b_regions[i] for i in np.argsort(b._df.iloc[:, bidx + 3].values)]
 
     if shuffle:
-        np.random.shuffle(a)
-        np.random.shuffle(b)
+        a = np.array(a)
+        b = np.array(b)
+        b = b[np.random.permutation(len(b))]
+        a = [tuple(a[i]) for i in range(a.shape[0])]
+        b = [tuple(b[i]) for i in range(b.shape[0])]
 
     return dKT(a, b)
 
@@ -385,8 +390,7 @@ def dKTw_iter(aidx, bidx, a, b, shuffle = False):
     b = b._df.iloc[:, bidx + 3].copy().values
 
     if shuffle:
-        np.random.shuffle(a)
-        np.random.shuffle(b)
+        b = b[np.random.permutation(len(b))]
 
     return dKTw(a, b)
 
@@ -549,7 +553,7 @@ class MetricTable(object):
         '''
         df = self._df.copy()
         a = np.array(self._all_regions())
-        np.random.shuffle(a)
+        a = a[np.random.permutation(len(a))]
         df.iloc[:, :3] = a
         return MetricTable(df = df)
 
