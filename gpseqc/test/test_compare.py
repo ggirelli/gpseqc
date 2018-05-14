@@ -10,6 +10,7 @@
 
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 
 from gpseqc.compare import *
 
@@ -71,6 +72,15 @@ def test_MetricTable_KendallTau_weighted():
     mt2 = rt1[1]
     assert 0 == mt1.dKTw(mt1)
     assert 0.5101 == np.round(mt1.dKTw(mt2), 4)
+
+def test_compare2randDistr():
+    np.random.seed(654546)
+    g = np.random.randn(5000) * 5
+    mu, sigma = norm.fit(g)
+    Zpval = norm.cdf(0, mu, sigma)
+    if .5 < Zpval: Zpval = 1 - Zpval
+    Zpval *= 2
+    assert 0.9822733103866876 == Zpval
 
 # END ==========================================================================
 

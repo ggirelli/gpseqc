@@ -241,10 +241,10 @@ else: # Run comparison test
         "%s/%sZ_table%s.tsv" % path_tuple, sep = args.delim)
     dout["Zpval"].to_csv(
         "%s/%sZpval_table%s.tsv" % path_tuple, sep = args.delim)
-    dout["KS"].to_csv(
-        "%s/%sKS_table%s.tsv" % path_tuple, sep = args.delim)
-    dout["KSpval"].to_csv(
-        "%s/%sKSpval_table%s.tsv" % path_tuple, sep = args.delim)
+    dout["SW"].to_csv(
+        "%s/%sSW_table%s.tsv" % path_tuple, sep = args.delim)
+    dout["SWpval"].to_csv(
+        "%s/%sSWpval_table%s.tsv" % path_tuple, sep = args.delim)
     with open("%s/%soutput%s.pickle" % path_tuple, "wb") as OH:
         pickle.dump(dout, OH)
 
@@ -260,8 +260,8 @@ else: # Run comparison test
         for (i, j) in pgen:
             title  = "Dist [%s]: %.4f\n" % (args.dist, dout["dist"].loc[i, j])
             title += "R1: %s; R2: %s" % (i, j)
-            title += "\nKS: %.6f; KS p.val: %.2E" % (
-                dout["KS"].loc[i, j], dout["KSpval"].loc[i, j])
+            title += "\nSW: %.6f; SW p.val: %.2E" % (
+                dout["SW"].loc[i, j], dout["SWpval"].loc[i, j])
             title += "\nn.perm=%d; Z = %.6f; p.val: %.2E;" % (
                     args.niter, dout["Z"].loc[i, j], dout["Zpval"].loc[i, j])
             plot_comparison(dout["dist"].loc[i, j],
@@ -275,8 +275,8 @@ else: # Run comparison test
             outpath = "%s/%sdist%s.pdf" % path_tuple)
         plot_heatmap(dout["Zpval"], [0, 0.01, 0.05], "Distance p-value",
             outpath = "%s/%sZpval%s.pdf" % path_tuple)
-        plot_heatmap(dout["KSpval"], [0, 0.01, 0.05], "KS p-value",
-            outpath = "%s/%sKSpval%s.pdf" % path_tuple)
+        plot_heatmap(dout["SWpval"], [0, 0.01, 0.05], "SW p-value",
+            outpath = "%s/%sSWpval%s.pdf" % path_tuple)
 
 # End --------------------------------------------------------------------------
 

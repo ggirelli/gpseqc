@@ -13,7 +13,7 @@ from matplotlib import pyplot as pp
 import numpy as np
 import os
 import pandas as pd
-from scipy.stats import norm, ks_2samp
+from scipy.stats import norm, shapiro
 from tqdm import tqdm
 
 from ggc.args import check_threads
@@ -256,47 +256,18 @@ class RankTable(object):
         else: # Parallelized
             ds = Parallel(n_jobs = threads, verbose = 11 if progress else 0)(
                 delayed(compareNshuffle)(a = a, b = b,
-                    dfun = dfun, shuffle = True, skipSubset = skipSubset)
+                    dfun = dfun, skipSubset = skipSubset)
                 for i in igen)
 
         return(ds)
 
-    def compare_to_rand_distr(d, rand_distr):
-        '''Compares a value "d" with a random distribution (expected to fit a
-        Gaussian). Also provides goodness-of-fit for the Gaussian.
-
-        Args:
-            d (float): value to compare to random distribution.
-            rand_distr (np.ndarray): random distribution.
-
-        Returns:
-            tuple: Z, Zpvalue, KS, KSpvalue.
-        '''
-
-        # Fit Gaussian
-        mu, sigma = norm.fit(rand_distr)
-
-        # Calculate significance
-        Z = (d - mu) / sigma
-        Zpval = norm.cdf(d, mu, sigma)
-        if .5 < Zpval: Zpval = 1 - Zpval
-        Zpval *= 2
-
-        # Calculate goodness-of-fit
-        obs = np.histogram(rand_distr, bins = 100, density = True)[0]
-        exp = np.array(norm.pdf(np.linspace(0, 1, 100),
-            loc = mu, scale = sigma))
-        KS, KSpval = ks_2samp(obs, exp)
-
-        return((Z, Zpval, KS, KSpval))
-
     def test_comparison(self, b, dfun = None, niter = 1000, skipSubset = False,
         progress = False, threads = 1):
         '''Compare two rank tables, providing p-value for significance against
-        random distribution (built with niter iterations), and Kolmogorov-
-        -Smirnov p-value of Gaussian goodnes-of-fit over the random
-        distribution. The goodness-of-fit is required for the proper calculation
-        of the significance p-value.
+        random distribution (built with niter iterations), and Shapiro-Wilk
+        p-value of Gaussian goodnes-of-fit over the random distribution. The
+        goodness-of-fit is required for the proper calculation of the
+        significance p-value.
 
         Args:
             b (MetricTable): second rank.
@@ -312,8 +283,8 @@ class RankTable(object):
                 random_distribution: niter distance DataFrames after shuffling..
                 Z: Z statistic.
                 Zpval: P-value calculated from Z.
-                KS: Kolmogorov-Smirnov statistic.
-                KSpval: p-value calculated from KS.
+                SW: Shapiro-Wilk statistic.
+                SWpval: p-value calculated from SW.
         '''
         
         assert niter >= 1, "at least one iteration is required."
@@ -340,23 +311,23 @@ class RankTable(object):
         Zpval_df = dtab.copy()
         Zpval_df[Zpval_df >= 0] = np.nan
         Z_df = Zpval_df.copy()
-        KSpval_df = Zpval_df.copy()
-        KS_df = Zpval_df.copy()
+        SWpval_df = Zpval_df.copy()
+        SW_df = Zpval_df.copy()
         
         pgen = ((i, j) for i in dtab.index for j in dtab.columns)
         if progress: pgen = tqdm(pgen, total = dtab.shape[0] * dtab.shape[1])
         for (i, j) in pgen:
-            Z, Zpval, KS, KSpval = RankTable.compare_to_rand_distr(
+            Z, Zpval, SW, SWpval = compare2randDistr(
                 dtab.loc[i, j], [d.loc[i, j] for d in rand_distr])
             Z_df.loc[i, j] = Z
             Zpval_df.loc[i, j] = Zpval
-            KS_df.loc[i, j] = KS
-            KSpval_df.loc[i, j] = KSpval
+            SW_df.loc[i, j] = SW
+            SWpval_df.loc[i, j] = SWpval
 
         return({
             "dist" : dtab, "random_distribution" : rand_distr,
             "Z" : Z_df, "Zpval" : Zpval_df,
-            "KS" : KS_df, "KSpval" : KSpval_df
+            "SW" : SW_df, "SWpval" : SWpval_df
         })
 
     def calc_KendallTau(self, b, *args, **kwargs):
@@ -383,6 +354,14 @@ class RankTable(object):
 
 
 def dKT_iter(aidx, bidx, a, b, shuffle = False):
+    '''Single MetricTable comparison with Kendall tau distance for RankTable
+    compare function. Needs to be outside the class to be pickled for Parallel.
+
+    Args:
+        aidx, bidx (int): index of metric to compare.
+        a, b (RankTable).
+        shuffle (bool): shuffle metrics before comparing them.
+    '''
     a = np.array(a._all_regions())
     b = np.array(b._all_regions())
 
@@ -393,8 +372,17 @@ def dKT_iter(aidx, bidx, a, b, shuffle = False):
     return dKT(a, b)
 
 def dKTw_iter(aidx, bidx, a, b, shuffle = False):
-    a = a._df.iloc[:, aidx + 3].copy()
-    b = b._df.iloc[:, bidx + 3].copy()
+    '''Single MetricTable comparison with Kendall tau weighted distance for
+    RankTable compare function. Needs to be outside the class to be pickled for
+    Parallel.
+
+    Args:
+        aidx, bidx (int): index of metric to compare.
+        a, b (RankTable).
+        shuffle (bool): shuffle metrics before comparing them.
+    '''
+    a = a._df.iloc[:, aidx + 3].copy().values
+    b = b._df.iloc[:, bidx + 3].copy().values
 
     if shuffle:
         np.random.shuffle(a)
@@ -403,7 +391,30 @@ def dKTw_iter(aidx, bidx, a, b, shuffle = False):
     return dKTw(a, b)
 
 def compareNshuffle(a, b, dfun, skipSubset, *args, **kwargs):
-    return a.shuffle().compare(b.shuffle(), dfun, skipSubset)
+    return a.compare(b, dfun, True, skipSubset)
+
+def compare2randDistr(d, rand_distr):
+    '''Compares a value "d" with a random distribution (expected to fit a
+    Gaussian). Also provides goodness-of-fit for the Gaussian.
+
+    Args:
+        d (float): value to compare to random distribution.
+        rand_distr (np.ndarray): random distribution.
+
+    Returns:
+        tuple: Z, Zpvalue, SW, SWpvalue.
+    '''
+
+    mu, sigma = norm.fit(rand_distr)
+
+    Z = (d - mu) / sigma
+    Zpval = norm.cdf(d, mu, sigma)
+    if .5 < Zpval: Zpval = 1 - Zpval
+    Zpval *= 2
+
+    W, Wpval = shapiro(rand_distr)
+
+    return((Z, Zpval, W, Wpval))
 
 
 class MetricTable(object):
@@ -620,28 +631,30 @@ def calc_KendallTau_weighted(a, b, progress = False):
 
     a_total = 0
     b_total = 0
+    a_diffs = 0
+    b_diffs = 0
+
     igen = (i for i in range(rsize))
     if progress: igen = tqdm(igen, total = rsize)
+
     for i in igen:
         for j in range(i + 1, rsize):
-            a_total = np.nansum([a_total, np.absolute(a[i] - a[j])])
-            b_total = np.nansum([b_total, np.absolute(b[i] - b[j])])
+            if 2 == np.isnan([b[i], b[j]]).sum():
+                continue
+
+            a_total += np.absolute(a[i] - a[j])
+            b_total += np.absolute(b[i] - b[j])
+
+            if b[i] > b[j]:
+                a_diffs += np.absolute(a[i] - a[j])
+                b_diffs += np.absolute(b[i] - b[j])
 
     assert_msg  = "if both ranks have constant weight, please use the "
     assert_msg += "standard Kendall tau distance instead."
     assert 0 != a_total + b_total, assert_msg
 
-    distance = 0
-    igen = (i for i in range(rsize))
-    if progress: igen = tqdm(igen, total = rsize)
-    for i in igen:
-        for j in range(i + 1, rsize):
-            if 2 == np.isnan([b[i], b[j]]).sum():
-                continue
-            if b[i] > b[j]:
-                weight = np.absolute(a[i] - a[j]) / a_total
-                weight = np.nansum([weight, np.absolute(b[i] - b[j]) / b_total])
-                distance = np.nansum([distance, weight / 2.])
+    distance  = np.sum(a_diffs / a_total) / 2.
+    distance += np.sum(b_diffs / b_total) / 2.
     
     return distance
 
