@@ -137,6 +137,20 @@ class RankTable(object):
         b = b.intersection(a)
         return(a, b)
 
+    def _sort_as(self, b):
+        '''Returns A with the same region order as B.'''
+        a_regions = self._all_regions()
+        b_regions = b._all_regions()
+
+        rows = []
+        for r in b_regions:
+            assert r in a_regions, "unmatched region sets."
+            rows.append(self._df.iloc[a_regions.index(r), :])
+
+        a = RankTable(df = pd.concat(rows, 1).transpose())
+
+        return(a)
+
     def shuffle(self):
         '''Shuffles the regions of a RankTable.
 
@@ -149,7 +163,7 @@ class RankTable(object):
         df.iloc[:, :3] = a
         return RankTable(df = df)
 
-    def compare(self, b, dfun = None, skipSubset = False,
+    def compare(self, b, dfun = None, shuffle = False, skipSubset = False,
         progress = False, threads = 1):
         '''Calculate the distance between all the MetricTables in the two
         RankTables. Distance is defined as dfun.
@@ -169,9 +183,10 @@ class RankTable(object):
         dfun = dKT_iter if type(None) == type(dfun) else dfun
         threads = check_threads(threads)
 
-        # Apply subsetting if needed
+        # Subset and sort
         a = self
         if not skipSubset: a, b = a._subset(b)
+        a = a._sort_as(b)
 
         # Run comparison -------------------------------------------------------
         
@@ -184,10 +199,10 @@ class RankTable(object):
 
         if 1 == threads: # Single-thread
             if progress: pgen = tqdm(pgen, total = len(a)*len(b))
-            dtab = [dfun(aidx, bidx, a, b) for (aidx, bidx) in pgen]
+            dtab = [dfun(aidx, bidx, a, b, shuffle) for (aidx, bidx) in pgen]
         else: # Parallelized
             dtab = Parallel(n_jobs = threads, verbose = 11 if progress else 0)(
-                delayed(dfun)(aidx, bidx, a, b)
+                delayed(dfun)(aidx, bidx, a, b, shuffle)
                 for (aidx, bidx) in pgen)
 
         # Reshape distance table
@@ -236,12 +251,12 @@ class RankTable(object):
             # Calculate distance table after niter shuffles
             ds = []
             for i in igen:
-                ds.append(self.shuffle().compare(b.shuffle(), dfun, skipSubset))
+                ds.append(self.compare(b, dfun, True, skipSubset))
 
         else: # Parallelized
             ds = Parallel(n_jobs = threads, verbose = 11 if progress else 0)(
                 delayed(compareNshuffle)(a = a, b = b,
-                    dfun = dfun, skipSubset = skipSubset)
+                    dfun = dfun, shuffle = True, skipSubset = skipSubset)
                 for i in igen)
 
         return(ds)
@@ -367,11 +382,25 @@ class RankTable(object):
         return self.calc_KendallTau_weighted(*args, **kwargs)
 
 
-def dKT_iter(aidx, bidx, a, b):
-    return a[aidx].dKT(b[bidx])
+def dKT_iter(aidx, bidx, a, b, shuffle = False):
+    a = np.array(a._all_regions())
+    b = np.array(b._all_regions())
 
-def dKTw_iter(aidx, bidx, a, b):
-    return a[aidx].dKTw(b[bidx])
+    if shuffle:
+        np.random.shuffle(a)
+        np.random.shuffle(b)
+
+    return dKT(a, b)
+
+def dKTw_iter(aidx, bidx, a, b, shuffle = False):
+    a = a._df.iloc[:, aidx + 3].copy()
+    b = b._df.iloc[:, bidx + 3].copy()
+
+    if shuffle:
+        np.random.shuffle(a)
+        np.random.shuffle(b)
+
+    return dKTw(a, b)
 
 def compareNshuffle(a, b, dfun, skipSubset, *args, **kwargs):
     return a.shuffle().compare(b.shuffle(), dfun, skipSubset)
@@ -527,19 +556,7 @@ class MetricTable(object):
         a = self
         if not skipSubset: a, b = a._subset(b)
 
-        # For each pair of ordered elements in a, if their ordered is inverted
-        # in b, then count it. Divide the count by the number of couples.
-        rsize = len(a) # Store in a variable for simplicity
-        blist = [a._all_regions().index(r) for r in b.iter_regions()]
-        n = 0
-        for i in range(rsize):
-            for j in range(i + 1, rsize):
-                if blist[i] > blist[j]:
-                    n += 1
-        d = n / ((rsize * (rsize - 1)) / 2)
-
-        # Output
-        return d
+        return calc_KendallTau(a._all_regions(), b._all_regions(), progress)
 
     def dKT(self, *args, **kwargs):
         '''Alias for calc_KendallTau.'''
@@ -558,42 +575,79 @@ class MetricTable(object):
         a = self
         if not skipSubset: a, b = a._subset(b)
 
-        rsize = len(a) # Store in a variable for simplicity
-
-        # Calculate denominators
-        pgen = ((i, j) for i in range(rsize) for j in range(i + 1, rsize))
-
-        Dn1 = 0
-        Dn2 = 0
-        for i in tqdm(range(rsize)):
-            for j in range(i + 1, rsize):
-                Dn1 += np.absolute(a.mcol[i] - a.mcol[j])
-                Dn2 += np.absolute(b.mcol[i] - b.mcol[j])
-        Dn1 = 1 if 0 == Dn1 else Dn1
-        Dn2 = 1 if 0 == Dn2 else Dn2
-
-        blist = [b.mcol[b._all_regions().index(r)] for r in a.iter_regions()]
-
-        d = 0
-        for i in range(rsize):
-            for j in range(i + 1, rsize):
-                #assert_msg = "MetricTable region order does not match."
-                #assert a._all_regions()[i] == a._all_regions()[j], assert_msg
-
-                if blist[i] > blist[j]:
-                    w  = np.absolute(a.mcol[i] - a.mcol[j]) / Dn1
-                    w += np.absolute(blist[i] - blist[j]) / Dn2
-                    w /= 2
-
-                    d += w
+        b_ordered = []
+        for r in a.iter_regions():
+            b_ordered.append(b.mcol[b._all_regions().index(r)])
         
-        # Output
-        return d
+        return calc_KendallTau_weighted(a.mcol, b_ordered, progress)
 
     def dKTw(self, *args, **kwargs):
         '''Alias for calc_KendallTau_weighted.'''
         return self.calc_KendallTau_weighted(*args, **kwargs)
 
+
+def calc_KendallTau(a, b, progress = False):
+    ''''''
+
+    rsize = len(a) # Store in a variable for simplicity
+    assert rsize == len(b), "unmatched rank length."
+
+    # For each pair of ordered elements in a, if their ordered is inverted
+    # in b, then count it. Divide the count by the number of couples.
+    b_ordered = [a.index(r) for r in b]
+
+    n = 0
+    igen = (i for i in range(rsize))
+    if progress: igen = tqdm(igen, total = rsize)
+    for i in igen:
+        for j in range(i + 1, rsize):
+            if b_ordered[i] > b_ordered[j]:
+                n += 1
+
+    d = n / ((rsize * (rsize - 1)) / 2)
+
+    return d
+
+def dKT(*args, **kwargs):
+    '''Alias for calc_KendallTau.'''
+    return calc_KendallTau(*args, **kwargs)
+
+def calc_KendallTau_weighted(a, b, progress = False):
+    ''''''
+
+    rsize = len(a) # Store in a variable for simplicity
+    assert rsize == len(b), "unmatched rank length."
+
+    a_total = 0
+    b_total = 0
+    igen = (i for i in range(rsize))
+    if progress: igen = tqdm(igen, total = rsize)
+    for i in igen:
+        for j in range(i + 1, rsize):
+            a_total = np.nansum([a_total, np.absolute(a[i] - a[j])])
+            b_total = np.nansum([b_total, np.absolute(b[i] - b[j])])
+
+    assert_msg  = "if both ranks have constant weight, please use the "
+    assert_msg += "standard Kendall tau distance instead."
+    assert 0 != a_total + b_total, assert_msg
+
+    distance = 0
+    igen = (i for i in range(rsize))
+    if progress: igen = tqdm(igen, total = rsize)
+    for i in igen:
+        for j in range(i + 1, rsize):
+            if 2 == np.isnan([b[i], b[j]]).sum():
+                continue
+            if b[i] > b[j]:
+                weight = np.absolute(a[i] - a[j]) / a_total
+                weight = np.nansum([weight, np.absolute(b[i] - b[j]) / b_total])
+                distance = np.nansum([distance, weight / 2.])
+    
+    return distance
+
+def dKTw(*args, **kwargs):
+    '''Alias for calc_KendallTau_weighted.'''
+    return calc_KendallTau_weighted(*args, **kwargs)
 
 def plot_comparison(d, rand_distr, title, xlab):
     '''

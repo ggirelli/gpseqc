@@ -258,8 +258,8 @@ else: # Run comparison test
             for j in dout["dist"].columns)
         pgen = tqdm(pgen, total = dout["dist"].shape[0] * dout["dist"].shape[1])
         for (i, j) in pgen:
-            title  = "Dist [%s]: %.4f" % (args.dist, dout["dist"].loc[i, j])
-            title += "R1: $\\bf{%s}$; R2: $\\bf{%s}$" % (i, j)
+            title  = "Dist [%s]: %.4f\n" % (args.dist, dout["dist"].loc[i, j])
+            title += "R1: %s; R2: %s" % (i, j)
             title += "\nKS: %.6f; KS p.val: %.2E" % (
                 dout["KS"].loc[i, j], dout["KSpval"].loc[i, j])
             title += "\nn.perm=%d; Z = %.6f; p.val: %.2E;" % (
