@@ -602,24 +602,39 @@ class MetricTable(object):
 
 
 def calc_KendallTau(a, b, progress = False):
-    ''''''
+    '''Calculate Kendall tau distance between two rankings. Each rank is a list
+    of sorted elements (ranked). The rank of an element is its index in the
+    list. The two list are expected to contain the same elements, possibly in
+    different order.
 
-    rsize = len(a) # Store in a variable for simplicity
-    assert rsize == len(b), "unmatched rank length."
+    Args:
+        a (list): first rank.
+        b (list): second rank.
+        progress (bool): show progress bar.
+    '''
 
-    # For each pair of ordered elements in a, if their ordered is inverted
-    # in b, then count it. Divide the count by the number of couples.
-    b_ordered = [a.index(r) for r in b]
+    rank_size = len(a) # Store in a variable for simplicity
+    assert rank_size == len(b), "unmatched rank length."
 
-    n = 0
-    igen = (i for i in range(rsize))
-    if progress: igen = tqdm(igen, total = rsize)
-    for i in igen:
-        for j in range(i + 1, rsize):
-            if b_ordered[i] > b_ordered[j]:
-                n += 1
+    # For each element in B, find its index in A.
+    b_reindexed = []
+    try:
+        for r in b:
+            b_reindexed.append(a.index(r))
+    except ValueError as e:
+        print("Element '%s' from rank 2 could not be found in rank 1.")
+        raise
 
-    d = n / ((rsize * (rsize - 1)) / 2)
+    # For each pair of ordered elements in A, if their order is inverted
+    # in B, then count a swap. Divide the swap count by the number of couples.
+    swap_count = 0
+    index_generator = (i for i in range(rank_size))
+    if progress: index_generator = tqdm(index_generator, total = rank_size)
+    for i in index_generator:
+        for j in range(i + 1, rank_size):
+            if b_reindexed[i] > b_reindexed[j]:
+                swap_count += 1
+    d = 2 * swap_count / (rank_size * (rank_size - 1))
 
     return d
 
@@ -627,31 +642,42 @@ def dKT(*args, **kwargs):
     '''Alias for calc_KendallTau.'''
     return calc_KendallTau(*args, **kwargs)
 
-def calc_KendallTau_weighted(a, b, progress = False):
-    ''''''
+def calc_KendallTau_weighted(a_weights, b_weights, progress = False):
+    '''Calculate Kendall tau distance between two rankings. Only the rank
+    weights are expected in input. The first weight list should match the first
+    ranking order (i.e., be sorted, increasing). The second weight list should
+    also match the order of the first ranking (i.e., possibly not sorted).
 
-    rsize = len(a) # Store in a variable for simplicity
-    assert rsize == len(b), "unmatched rank length."
+    Args:
+        a_weights (list): weights from 1st ranking, in 1st ranking order.
+        b_weights (list): weights from 2nd ranking, in 2nd ranking order.
+        progress (bool): show progress bar.
+    '''
+
+    rank_size = len(a_weights) # Store in a variable for simplicity
+    assert rank_size == len(b_weights), "unmatched rank length."
 
     a_total = 0
     b_total = 0
     a_diffs = 0
     b_diffs = 0
 
-    igen = (i for i in range(rsize))
-    if progress: igen = tqdm(igen, total = rsize)
+    igen = (i for i in range(rank_size))
+    if progress: igen = tqdm(igen, total = rank_size)
 
     for i in igen:
-        for j in range(i + 1, rsize):
-            if 2 == np.isnan([b[i], b[j]]).sum():
+        for j in range(i + 1, rank_size):
+            assert a_weights[i] <= a_weights[j], "1st rank is not sorted."
+
+            if 2 == np.isnan([b_weights[i], b_weights[j]]).sum():
                 continue
 
-            a_total += np.absolute(a[i] - a[j])
-            b_total += np.absolute(b[i] - b[j])
+            a_total += np.absolute(a_weights[i] - a_weights[j])
+            b_total += np.absolute(b_weights[i] - b_weights[j])
 
-            if b[i] > b[j]:
-                a_diffs += np.absolute(a[i] - a[j])
-                b_diffs += np.absolute(b[i] - b[j])
+            if b_weights[i] > b_weights[j]:
+                a_diffs += np.absolute(a_weights[i] - a_weights[j])
+                b_diffs += np.absolute(b_weights[i] - b_weights[j])
 
     assert_msg  = "if both ranks have constant weight, please use the "
     assert_msg += "standard Kendall tau distance instead."
