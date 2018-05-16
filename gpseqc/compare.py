@@ -438,13 +438,13 @@ def dEMD_iter(aidx, bidx, a, b, shuffle = False):
     b_asorted = b[np.random.permutation(len(b))] if shuffle else b[a_isorted]
     a_asorted = a[a_isorted]
 
-    d  = emd(a_asorted, b_asorted, distance_matrix)
+    d1 = emd(a_asorted, b_asorted, distance_matrix)
 
     b_isorted = np.argsort(b)
     a_bsorted = a[np.random.permutation(len(a))] if shuffle else a[b_isorted]
     b_bsorted = b[b_isorted]
 
-    d += emd(a_bsorted, b_bsorted, distance_matrix)
+    d2 = emd(a_bsorted, b_bsorted, distance_matrix)
 
     return d / 2.
 
@@ -639,6 +639,34 @@ class MetricTable(object):
         '''Alias for calc_KendallTau_weighted.'''
         return self.calc_KendallTau_weighted(*args, **kwargs)
 
+    def calc_EarthMoversDistance(self, b, skipSubset = False):
+        '''Calculate Kendall tau distance between two MetricTables.
+        The distance is calculated only on the intersection between the tables.
+
+        Args:
+            b (MetricTable): .
+            skipSubset (bool): .
+        '''
+
+        # Apply subsetting if needed
+        a = self
+        if not skipSubset: a, b = a._subset(b)
+
+        b_asorted = []
+        for r in a.iter_regions():
+            b_asorted.append(b.mcol[b._all_regions().index(r)])
+
+        a_bsorted = []
+        for r in b.iter_regions():
+            a_bsorted.append(a.mcol[a._all_regions().index(r)])
+
+        distance_matrix = mk2DdistanceMatrix(len(a), len(b))
+        
+        d  = calc_EarthMoversDistance(a.mcol, b_asorted, distance_matrix)
+        d += calc_EarthMoversDistance(a_bsorted, b.mcol, distance_matrix)
+
+        return d / 2.
+
     def emd(self, *args, **kwargs):
         '''Alias for calc_EarthMoversDistance.'''
         return self.calc_EarthMoversDistance(*args, **kwargs)
@@ -767,6 +795,33 @@ def calc_EarthMoversDistance(a_weights, b_weights, distance_matrix):
 def emd(*args, **kwargs):
     '''Alias for calc_EarthMoversDistance.'''
     return calc_EarthMoversDistance(*args, **kwargs)
+
+# def calcEMDbounds(a_weights, b_weights, distance_matrix):
+#     '''Calculate Earth Mover's Distance boundaries between two rankings.
+
+#     Args:
+#         a_weights (np.ndarray): weights from 1st ranking.
+#         b_weights (np.ndarray): weights from 2nd ranking.
+#         distance_matrix (np.ndarray): matrix with pair-wise distance between
+#                                       ranked items.
+    
+#     Returns:
+#         dmin, dmax: EMD boundaries
+#     '''
+#     a_weights = np.array(a_weights, dtype = np.float64)
+#     b_weights = np.array(b_weights, dtype = np.float64)
+
+#     a_weights.sort()
+#     b_weights.sort()
+#     dmin = pyemd.emd(a_weights, b_weights, distance_matrix,
+#         extra_mass_penalty = -1.0)
+
+#     b_weights = np.array(b_weights[::-1], dtype = np.float64)
+#     dmax = pyemd.emd(a_weights, b_weights, distance_matrix,
+#         extra_mass_penalty = -1.0)
+
+#     assert dmin < dmax
+#     return (dmin, dmax)
 
 
 def plot_comparison(d, rand_distr, title, xlab):
