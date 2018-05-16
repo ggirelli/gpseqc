@@ -327,7 +327,7 @@ class RankTable(object):
         for (i, j) in pgen:
             data = [d.loc[i, j] for d in rand_distr]
 
-            pval = percentileofscore(data, dtab.loc[i, j])
+            pval = percentileofscore(data, dtab.loc[i, j]) / 100.
             if pval > 0.5: pval = 1 - pval
             pval /= 2.
 
@@ -410,11 +410,8 @@ def dKTw_iter(aidx, bidx, a, b, shuffle = False):
     b = b._df.iloc[:, bidx + 3].copy().values
 
     a_isorted = np.argsort(a)
-    b = b[a_isorted]
     a = a[a_isorted]
-
-    if shuffle:
-        b = b[np.random.permutation(len(b))]
+    b = b[np.random.permutation(len(b))] if shuffle else b[a_isorted]
 
     return dKTw(a, b)
 
@@ -636,39 +633,11 @@ class MetricTable(object):
         for r in a.iter_regions():
             b_ordered.append(b.mcol[b._all_regions().index(r)])
         
-        return calc_KendallTau_weighted(a.mcol, b_ordered, progress)
+        return dKTw(a.mcol, b_ordered, progress)
 
     def dKTw(self, *args, **kwargs):
         '''Alias for calc_KendallTau_weighted.'''
         return self.calc_KendallTau_weighted(*args, **kwargs)
-
-    def calc_KendallTau_weighted(self, b, skipSubset = False):
-        '''Calculate Kendall tau distance between two MetricTables.
-        The distance is calculated only on the intersection between the tables.
-
-        Args:
-            b (MetricTable): .
-            skipSubset (bool): .
-        '''
-
-        # Apply subsetting if needed
-        a = self
-        if not skipSubset: a, b = a._subset(b)
-
-        b_asorted = []
-        for r in a.iter_regions():
-            b_asorted.append(b.mcol[b._all_regions().index(r)])
-
-        a_bsorted = []
-        for r in b.iter_regions():
-            a_bsorted.append(a.mcol[a._all_regions().index(r)])
-
-        distance_matrix = mk2DdistanceMatrix(len(a), len(b))
-        
-        d  = calc_EarthMoversDistance(a.mcol, b_asorted, distance_matrix)
-        d += calc_EarthMoversDistance(a_bsorted, b.mcol, distance_matrix)
-
-        return d / 2.
 
     def emd(self, *args, **kwargs):
         '''Alias for calc_EarthMoversDistance.'''
@@ -731,10 +700,10 @@ def calc_KendallTau_weighted(a_weights, b_weights, progress = False):
     rank_size = len(a_weights) # Store in a variable for simplicity
     assert rank_size == len(b_weights), "unmatched rank length."
 
-    a_total = 0
-    b_total = 0
-    a_diffs = 0
-    b_diffs = 0
+    a_total_weight = 0
+    b_total_weight = 0
+    a_swaps_weight = 0
+    b_swaps_weight = 0
 
     igen = (i for i in range(rank_size))
     if progress: igen = tqdm(igen, total = rank_size)
@@ -746,19 +715,22 @@ def calc_KendallTau_weighted(a_weights, b_weights, progress = False):
             if 2 == np.isnan([b_weights[i], b_weights[j]]).sum():
                 continue
 
-            a_total += np.absolute(a_weights[i] - a_weights[j])
-            b_total += np.absolute(b_weights[i] - b_weights[j])
+            a_difference = np.absolute(a_weights[i] - a_weights[j])
+            b_difference = np.absolute(b_weights[i] - b_weights[j])
+
+            a_total_weight += a_difference
+            b_total_weight += b_difference
 
             if b_weights[i] > b_weights[j]:
-                a_diffs += np.absolute(a_weights[i] - a_weights[j])
-                b_diffs += np.absolute(b_weights[i] - b_weights[j])
+                a_swaps_weight += a_difference
+                b_swaps_weight += b_difference
 
     assert_msg  = "if both ranks have constant weight, please use the "
     assert_msg += "standard Kendall tau distance instead."
-    assert 0 != a_total + b_total, assert_msg
+    assert 0 != a_total_weight + b_total_weight, assert_msg
 
-    distance  = np.sum(a_diffs / a_total) / 2.
-    distance += np.sum(b_diffs / b_total) / 2.
+    distance  = np.sum(a_swaps_weight / a_total_weight) / 2.
+    distance += np.sum(b_swaps_weight / b_total_weight) / 2.
     
     return distance
 
