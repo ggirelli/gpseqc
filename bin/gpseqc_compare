@@ -34,9 +34,6 @@
 # Project: GPSeq
 # Description: estimate region centrality from GPSeq sequencing data.
 # 
-# Changelog:
-#   v2.0.0 - 20180516: first release as a python package.
-# 
 # ------------------------------------------------------------------------------
 
 

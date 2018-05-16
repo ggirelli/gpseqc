@@ -34,17 +34,6 @@
 # Project: GPSeq
 # Description: estimate region centrality from GPSeq sequencing data.
 # 
-# Changelog:
-#   v2.0.7 - 20180509: fixed typo.
-#   v2.0.6 - 20180508: using ggc for settings export.
-#   v2.0.5 - 20180502: added Python version to settings file.
-#   v2.0.4 - 20180429: added command line, timestamp and version tag
-#   				   to settings file.
-#   v2.0.3 - 20180425: fixed -y option.
-#   v2.0.2 - 20180424: fixed empty bins issue during step (6).
-#   v2.0.1 - 20180424: added no-empty input bedfile assert.
-#   v2.0.0 - 20180424: first release as a python package.
-# 
 # ------------------------------------------------------------------------------
 
 

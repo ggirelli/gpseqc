@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
+### ...
+
+
+
+## [2.0.4] - 2018-05-16
 ### Added
-- Implemented `gpseqc_compare`.
+- `gpseqc_compare` for ranking comparison.
 
 
 
@@ -90,6 +95,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 [Unreleased] https://github.com/ggirelli/gpseq-centrality-estimate  
+[2.0.4] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.4  
+[2.0.3] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.3  
 [2.0.2] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.2  
 [2.0.1] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.1  
 [2.0.0] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.0  

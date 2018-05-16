@@ -1,4 +1,4 @@
-gpseqc v2.0.3
+gpseqc v2.0.4
 ===
 
 A Python3 package that provides tools to estimate the 3D spatial nuclear centrality of genomic regions and compare different centrality rankings.
@@ -42,9 +42,7 @@ The `gpseqc_estimate` script allows to estimate regional nuclear centrality base
 
 #### Compare centrality ranks
 
-<s>The `gpseqc_compare` script allows to compare different regional centrality ranks. Run `gpseqc_estimate -h` for more details.</s>
-
-**NOTE: the `gpseqc_compare` script is not available yet. Please, use the old `gpseqc_compare_legacy` script instead (more info with `-h`).**
+The `gpseqc_compare` script allows to compare different regional centrality ranks. Run `gpseqc_estimate -h` for more details.
 
 Contributing
 ---
