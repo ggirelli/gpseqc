@@ -346,10 +346,6 @@ class RankTable(object):
         '''
         return self.compare(b, "kt", *args, **kwargs)
 
-    def dKT(self, *args, **kwargs):
-        '''Alias for calc_KendallTau.'''
-        return self.calc_KendallTau(*args, **kwargs)
-
     def calc_KendallTau_weighted(self, b, *args, **kwargs):
         '''Calculate the weighted Kendall Tau distance between all the
         MetricTables in the two RankTables. Additional parameters are passed to
@@ -357,20 +353,12 @@ class RankTable(object):
         '''
         return self.compare(b, "ktw", *args, **kwargs)
 
-    def dKTw(self, *args, **kwargs):
-        '''Alias for calc_KendallTau_weighted.'''
-        return self.calc_KendallTau_weighted(*args, **kwargs)
-
     def calc_EarthMoversDistance(self, b, *args, **kwargs):
         '''Calculate the Earth Mover's Distance between all the MetricTables in
         the two RankTables. Additional parameters are passed to the self.compare
         function.
         '''
         return self.compare(b, "emd", *args, **kwargs)
-
-    def emd(self, *args, **kwargs):
-        '''Alias for calc_EarthMoversDistance.'''
-        return self.calc_EarthMoversDistance(*args, **kwargs)
 
 
 def dKT_iter(aidx, bidx, a, b, shuffle = False):
@@ -394,7 +382,7 @@ def dKT_iter(aidx, bidx, a, b, shuffle = False):
         a = [tuple(a[i]) for i in range(a.shape[0])]
         b = [tuple(b[i]) for i in range(b.shape[0])]
 
-    return dKT(a, b)
+    return calc_KendallTau(a, b)
 
 def dKTw_iter(aidx, bidx, a, b, shuffle = False):
     '''Single MetricTable comparison with Kendall tau weighted distance for
@@ -413,7 +401,7 @@ def dKTw_iter(aidx, bidx, a, b, shuffle = False):
     a = a[a_isorted]
     b = b[np.random.permutation(len(b))] if shuffle else b[a_isorted]
 
-    return dKTw(a, b)
+    return calc_KendallTau_weighted(a, b)
 
 def dEMD_iter(aidx, bidx, a, b, shuffle = False):
     '''Single MetricTable comparison with Earth Mover's Distance for RankTable
@@ -438,13 +426,13 @@ def dEMD_iter(aidx, bidx, a, b, shuffle = False):
     b_asorted = b[np.random.permutation(len(b))] if shuffle else b[a_isorted]
     a_asorted = a[a_isorted]
 
-    d1 = emd(a_asorted, b_asorted, distance_matrix)
+    d  = calc_EarthMoversDistance(a_asorted, b_asorted, distance_matrix)
 
     b_isorted = np.argsort(b)
     a_bsorted = a[np.random.permutation(len(a))] if shuffle else a[b_isorted]
     b_bsorted = b[b_isorted]
 
-    d2 = emd(a_bsorted, b_bsorted, distance_matrix)
+    d += calc_EarthMoversDistance(a_bsorted, b_bsorted, distance_matrix)
 
     return d / 2.
 
@@ -612,10 +600,6 @@ class MetricTable(object):
 
         return calc_KendallTau(a._all_regions(), b._all_regions(), progress)
 
-    def dKT(self, *args, **kwargs):
-        '''Alias for calc_KendallTau.'''
-        return self.calc_KendallTau(*args, **kwargs)
-
     def calc_KendallTau_weighted(self, b, skipSubset = False, progress = False):
         '''Calculate Kendall tau distance between two MetricTables.
         The distance is calculated only on the intersection between the tables.
@@ -633,11 +617,7 @@ class MetricTable(object):
         for r in a.iter_regions():
             b_ordered.append(b.mcol[b._all_regions().index(r)])
         
-        return dKTw(a.mcol, b_ordered, progress)
-
-    def dKTw(self, *args, **kwargs):
-        '''Alias for calc_KendallTau_weighted.'''
-        return self.calc_KendallTau_weighted(*args, **kwargs)
+        return calc_KendallTau_weighted(a.mcol, b_ordered, progress)
 
     def calc_EarthMoversDistance(self, b, skipSubset = False):
         '''Calculate Kendall tau distance between two MetricTables.
@@ -666,10 +646,6 @@ class MetricTable(object):
         d += calc_EarthMoversDistance(a_bsorted, b.mcol, distance_matrix)
 
         return d / 2.
-
-    def emd(self, *args, **kwargs):
-        '''Alias for calc_EarthMoversDistance.'''
-        return self.calc_EarthMoversDistance(*args, **kwargs)
 
 
 def calc_KendallTau(a, b, progress = False):
@@ -708,10 +684,6 @@ def calc_KendallTau(a, b, progress = False):
     d = 2 * swap_count / (rank_size * (rank_size - 1))
 
     return d
-
-def dKT(*args, **kwargs):
-    '''Alias for calc_KendallTau.'''
-    return calc_KendallTau(*args, **kwargs)
 
 def calc_KendallTau_weighted(a_weights, b_weights, progress = False):
     '''Calculate Kendall tau distance between two rankings. Only the rank
@@ -762,10 +734,6 @@ def calc_KendallTau_weighted(a_weights, b_weights, progress = False):
     
     return distance
 
-def dKTw(*args, **kwargs):
-    '''Alias for calc_KendallTau_weighted.'''
-    return calc_KendallTau_weighted(*args, **kwargs)
-
 def calc_EarthMoversDistance(a_weights, b_weights, distance_matrix):
     '''Calculate Earth Mover's Distance between two rankings.
 
@@ -791,10 +759,6 @@ def calc_EarthMoversDistance(a_weights, b_weights, distance_matrix):
     d /= distance_matrix.max()
 
     return d
-
-def emd(*args, **kwargs):
-    '''Alias for calc_EarthMoversDistance.'''
-    return calc_EarthMoversDistance(*args, **kwargs)
 
 # def calcEMDbounds(a_weights, b_weights, distance_matrix):
 #     '''Calculate Earth Mover's Distance boundaries between two rankings.

@@ -64,15 +64,15 @@ def test_MetricTable():
 def test_MetricTable_KendallTau():
     mt1 = rt1[0]
     mt2 = rt1[1]
-    assert 0 == mt1.dKT(mt1)
-    assert 0.5 == mt1.dKT(mt2)
+    assert 0 == mt1.calc_KendallTau(mt1)
+    assert 0.5 == mt1.calc_KendallTau(mt2)
 
 def test_MetricTable_KendallTau_weighted():
     mt1 = rt1[0]
     mt2 = rt1[1]
-    assert 0 == mt1.dKTw(mt1)
+    assert 0 == mt1.calc_KendallTau_weighted(mt1)
     assert 0.5101 == np.round(dKTw_iter(0, 1, rt1, rt1), 4)
-    assert 0.5101 == np.round(mt1.dKTw(mt2), 4)
+    assert 0.5101 == np.round(mt1.calc_KendallTau_weighted(mt2), 4)
 
 def test_compare2randDistr():
     np.random.seed(654546)
@@ -100,13 +100,13 @@ def test_EMD():
     a_isorted = np.argsort(a_weights)
     b_asorted = b_weights[a_isorted]
     a_asorted = a_weights[a_isorted]
-    d1  = emd(a_asorted, b_asorted, distance_matrix)
+    d1  = calc_EarthMoversDistance(a_asorted, b_asorted, distance_matrix)
     assert 0.39171 == np.round(d1, 5)
 
     b_isorted = np.argsort(b_weights)
     a_bsorted = a_weights[b_isorted]
     b_bsorted = b_weights[b_isorted]
-    d2 = emd(a_bsorted, b_bsorted, distance_matrix)
+    d2 = calc_EarthMoversDistance(a_bsorted, b_bsorted, distance_matrix)
     assert 0.18209 == np.round(d2, 5)
 
     a_extreme = np.zeros(a_weights.shape)
