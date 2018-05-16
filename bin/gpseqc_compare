@@ -210,17 +210,17 @@ dlabel = compare.DISTANCE_LABELS[args.dist]
 
 if args.no_test:
     print("Calculating distance...")
-    dout = r1.compare(r2, args.dist, args.niter, skipSubset = True,
+    dtab = r1.compare(r2, args.dist, args.niter, skipSubset = True,
         progress = True, threads = args.threads)
 
     # Export DataFrames
     print("Exporting tsv tables...")
     path_tuple = (args.outdir, args.prefix, args.suffix)
-    dout["dist"].to_csv("%s/%sdist_table%s.tsv" % path_tuple, sep = args.delim)
+    dtab.to_csv("%s/%sdist_table%s.tsv" % path_tuple, sep = args.delim)
 
     if not args.no_plot:
         # Plot
-        plot_heatmap(dout["dist"], [0, .5, 1], dlabel,
+        plot_heatmap(dtab, [0, .5, 1], dlabel,
             outpath = "%s/%sdist%s.pdf" % path_tuple)
 
 else: # Run comparison test
