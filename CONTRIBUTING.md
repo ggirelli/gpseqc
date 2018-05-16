@@ -6,7 +6,7 @@ Hi there, thank you for considering contributing to `GPSeqC` to help us make our
 
 # Ground Rules
 
-To see what kinds of behaviour are ucceptable when contributing to `GPSeqC`, please refer to our [code of conduct](https://github.com/ggirelli/gpseq_ce/blob/master/CODE_OF_CONDUCT.md).
+To see what kinds of behaviour are ucceptable when contributing to `GPSeqC`, please refer to our [code of conduct](https://ggirelli.github.io/gpseqc/code_of_conduct).
 
 # Getting started
 
