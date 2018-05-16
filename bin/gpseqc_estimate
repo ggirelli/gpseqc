@@ -289,7 +289,7 @@ def print_settings(args, clear = True):
 	s = " # GPSeq-centrality-estimate v%s\n\n" % version
 
 	if type(None) != type(args.bin_bed):
-		s += " Bin be file: %s\n" % args.bin_bed
+		s += "    Bin bed: %s\n" % args.bin_bed
 
 	if 0 == args.bin_size and type(None) == type(args.bin_bed):
 		s += " Using chr-wide bins.\n"

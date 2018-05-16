@@ -56,6 +56,7 @@ from tqdm import tqdm
 from ggc.args import check_threads, export_settings
 from ggc.prompt import ask
 
+import gpseqc.compare as compare
 from gpseqc.compare import RankTable, MetricTable
 from gpseqc.compare import dKT_iter, dKTw_iter
 from gpseqc.compare import plot_comparison, plot_heatmap
@@ -94,8 +95,9 @@ parser.add_argument('-o', '--outdir', type = str, metavar = 'outdir',
     default = '.', help = """Path to output directory, created if missing.
     Defaults to current directory.""")
 parser.add_argument('-d', '--dist', type = str, metavar = 'dist',
-    help = """Whether 'kt' (Kendall tau) or 'ktw' (Kendall tau weighted).
-    Default: 'ktw'""", choices = ['kt', 'ktw'], default = 'ktw')
+    help = """Whether 'kt' (Kendall tau), 'ktw' (weighted Kendall tau), or 'emd'
+    (Earth Mover's Distance). Default: 'ktw'""",
+    choices = list(compare.DISTANCE_FUNS.keys()), default = 'ktw')
 parser.add_argument('-n', '--niter', type = int, metavar = 'niter',
     default = 5000, help = """Number of iterations to build the random
     distribution. Default: 5000""")
@@ -207,14 +209,12 @@ r2 = r2.intersection(r1)
 assert 0 != len(r2), "empty table left after subsetting."
 
 # Distance label and function
-dfun = dKTw_iter if "ktw" == args.dist else dKT_iter
-dlabel = "Kendall tau distance"
-dlabel = dlabel if "kt" == args.dist else "Weighted %s" % dlabel
+dlabel = compare.DISTANCE_LABELS[args.dist]
 
 if args.no_test:
     print("Calculating distance...")
-    dout = r1.compare(r2, dfun, args.niter, skipSubset = True, progress = True,
-        threads = args.threads)
+    dout = r1.compare(r2, args.dist, args.niter, skipSubset = True,
+        progress = True, threads = args.threads)
 
     # Export DataFrames
     print("Exporting tsv tables...")
@@ -228,7 +228,7 @@ if args.no_test:
 
 else: # Run comparison test
     print("Running comparison test...")
-    dout = r1.test_comparison(r2, dfun, args.niter, skipSubset = True,
+    dout = r1.test_comparison(r2, args.dist, args.niter, skipSubset = True,
         progress = True, threads = args.threads)
 
     # Export DataFrames --------------------------------------------------------
@@ -237,14 +237,8 @@ else: # Run comparison test
     path_tuple = (args.outdir, args.prefix, args.suffix)
     dout["dist"].to_csv(
         "%s/%sdist_table%s.tsv" % path_tuple, sep = args.delim)
-    dout["Z"].to_csv(
-        "%s/%sZ_table%s.tsv" % path_tuple, sep = args.delim)
-    dout["Zpval"].to_csv(
-        "%s/%sZpval_table%s.tsv" % path_tuple, sep = args.delim)
-    dout["KS"].to_csv(
-        "%s/%sKS_table%s.tsv" % path_tuple, sep = args.delim)
-    dout["KSpval"].to_csv(
-        "%s/%sKSpval_table%s.tsv" % path_tuple, sep = args.delim)
+    dout["pval"].to_csv(
+        "%s/%spval_table%s.tsv" % path_tuple, sep = args.delim)
     with open("%s/%soutput%s.pickle" % path_tuple, "wb") as OH:
         pickle.dump(dout, OH)
 
@@ -252,30 +246,28 @@ else: # Run comparison test
         # Plot ---------------------------------------------------------------------
         print("Plotting...")
 
+        # Recap heatmaps
+        plot_heatmap(dout["dist"], [0, .5, 1], dlabel,
+            outpath = "%s/%sdist%s.pdf" % path_tuple)
+        plot_heatmap(dout["pval"], [0, 0.01, 0.05], "Distance p-value",
+            outpath = "%s/%spval%s.pdf" % path_tuple)
+
         # Single comparison plots with Gaussian fit
         outpdf = PdfPages("%s/%snorm%s.pdf" % path_tuple)
         pgen = ((i, j) for i in dout["dist"].index
             for j in dout["dist"].columns)
         pgen = tqdm(pgen, total = dout["dist"].shape[0] * dout["dist"].shape[1])
+        xlim = (0, 1) if args.dist != "emd" else None
         for (i, j) in pgen:
-            title = "R1: $\\bf{%s}$; R2: $\\bf{%s}$" % (i, j)
-            title += "\nKS: %.6f; KS p.val: %.2E" % (
-                dout["KS"].loc[i, j], dout["KSpval"].loc[i, j])
-            title += "\nn.perm=%d; Z = %.6f; p.val: %.2E;" % (
-                    args.niter, dout["Z"].loc[i, j], dout["Zpval"].loc[i, j])
+            title  = "Dist [%s]: %.4f\n" % (args.dist, dout["dist"].loc[i, j])
+            title += "R1: %s; R2: %s" % (i, j)
+            title += "\nn.perm=%d;" % args.niter
+            title += " p.val: %.2E;" % dout["pval"].loc[i, j]
             plot_comparison(dout["dist"].loc[i, j],
                 [d.loc[i, j] for d in dout["random_distribution"]],
-                title, dlabel).savefig(outpdf, format = 'pdf')
+                title, dlabel, xlim).savefig(outpdf, format = 'pdf')
+            pp.close('all')
         outpdf.close()
-        pp.close('all')
-
-        # Recap heatmaps
-        plot_heatmap(dout["dist"], [0, .5, 1], dlabel,
-            outpath = "%s/%sdist%s.pdf" % path_tuple)
-        plot_heatmap(dout["Zpval"], [0, 0.01, 0.05], "Distance p-value",
-            outpath = "%s/%sZpval%s.pdf" % path_tuple)
-        plot_heatmap(dout["KSpval"], [0, 0.01, 0.05], "KS p-value",
-            outpath = "%s/%sKSpval%s.pdf" % path_tuple)
 
 # End --------------------------------------------------------------------------
 

@@ -13,7 +13,8 @@ from matplotlib import pyplot as pp
 import numpy as np
 import os
 import pandas as pd
-from scipy.stats import norm, ks_2samp
+import pyemd
+from scipy.stats import percentileofscore, scoreatpercentile
 from tqdm import tqdm
 
 from ggc.args import check_threads
@@ -137,6 +138,20 @@ class RankTable(object):
         b = b.intersection(a)
         return(a, b)
 
+    def _sort_as(self, b):
+        '''Returns A with the same region order as B.'''
+        a_regions = self._all_regions()
+        b_regions = b._all_regions()
+
+        rows = []
+        for r in b_regions:
+            assert r in a_regions, "unmatched region sets."
+            rows.append(self._df.iloc[a_regions.index(r), :])
+
+        a = RankTable(df = pd.concat(rows, 1).transpose())
+
+        return(a)
+
     def shuffle(self):
         '''Shuffles the regions of a RankTable.
 
@@ -145,18 +160,18 @@ class RankTable(object):
         '''
         df = self._df.copy()
         a = np.array(self._all_regions())
-        np.random.shuffle(a)
+        a = a[np.random.permutation(len(a))]
         df.iloc[:, :3] = a
         return RankTable(df = df)
 
-    def compare(self, b, dfun = None, skipSubset = False,
+    def compare(self, b, distance = None, shuffle = False, skipSubset = False,
         progress = False, threads = 1):
         '''Calculate the distance between all the MetricTables in the two
-        RankTables. Distance is defined as dfun.
+        RankTables. Distance is defined as distance.
 
         Args:
             b (MetricTable): second rank.
-            dfun (fun): distance function with index1, index2, mt1, mt2 input.
+            distance (str): distance metric type (see compare.DISTANCE_FUNS).
             skipSubset (bool): if the two ranks are already subsetted.
             progress (bool): show progress bar.
             threads (int): number of threads for parallelization.
@@ -166,12 +181,17 @@ class RankTable(object):
                           cell.
         '''
 
-        dfun = dKT_iter if type(None) == type(dfun) else dfun
+        distance = "kt" if type(None) == type(distance) else distance
+        assert_msg = "unrecognized '%s' distance type. Available: %s" % (
+            distance, str(list(DISTANCE_FUNS.keys())))
+        assert distance in DISTANCE_FUNS.keys(), assert_msg
+        dfun = DISTANCE_FUNS[distance]
         threads = check_threads(threads)
 
-        # Apply subsetting if needed
+        # Subset and sort
         a = self
         if not skipSubset: a, b = a._subset(b)
+        a = a._sort_as(b)
 
         # Run comparison -------------------------------------------------------
         
@@ -184,10 +204,10 @@ class RankTable(object):
 
         if 1 == threads: # Single-thread
             if progress: pgen = tqdm(pgen, total = len(a)*len(b))
-            dtab = [dfun(aidx, bidx, a, b) for (aidx, bidx) in pgen]
+            dtab = [dfun(aidx, bidx, a, b, shuffle) for (aidx, bidx) in pgen]
         else: # Parallelized
             dtab = Parallel(n_jobs = threads, verbose = 11 if progress else 0)(
-                delayed(dfun)(aidx, bidx, a, b)
+                delayed(dfun)(aidx, bidx, a, b, shuffle)
                 for (aidx, bidx) in pgen)
 
         # Reshape distance table
@@ -201,15 +221,15 @@ class RankTable(object):
 
         return(dtab)
 
-    def build_rand_distr(self, b, dfun = None, niter = 1000, skipSubset = False,
-        progress = False, threads = 1):
+    def build_rand_distr(self, b, distance = None, niter = 1000,
+        skipSubset = False, progress = False, threads = 1):
         '''Builds a random distribution by shuffling the two Ranking tables
-        and then comparing them. This process needs to be iterated a large enough
-        number of times to produce a proper distribution.
+        and then comparing them. This process needs to be iterated a large
+        enough number of times to produce a proper distribution.
 
         Args:
             b (MetricTable): second rank.
-            dfun (fun): distance function with index1, index2, mt1, mt2 input.
+            distance (str): distance metric type (see compare.DISTANCE_FUNS).
             niter (int): number of iterations to build the random distribution.
             skipSubset (bool): if the two ranks are already subsetted.
             progress (bool): show progress bar.
@@ -218,7 +238,10 @@ class RankTable(object):
         
         assert niter >= 1, "at least one iteration is required."
 
-        dfun = dKT_iter if type(None) == type(dfun) else dfun
+        distance = "kt" if type(None) == type(distance) else distance
+        assert_msg = "unrecognized '%s' distance type. Available: %s" % (
+            distance, str(list(DISTANCE_FUNS.keys())))
+        assert distance in DISTANCE_FUNS.keys(), assert_msg
         threads = check_threads(threads)
 
         # Apply subsetting if needed
@@ -236,56 +259,27 @@ class RankTable(object):
             # Calculate distance table after niter shuffles
             ds = []
             for i in igen:
-                ds.append(self.shuffle().compare(b.shuffle(), dfun, skipSubset))
+                ds.append(self.compare(b, distance, True, skipSubset))
 
         else: # Parallelized
             ds = Parallel(n_jobs = threads, verbose = 11 if progress else 0)(
                 delayed(compareNshuffle)(a = a, b = b,
-                    dfun = dfun, skipSubset = skipSubset)
+                    distance = distance, skipSubset = skipSubset)
                 for i in igen)
 
         return(ds)
 
-    def compare_to_rand_distr(d, rand_distr):
-        '''Compares a value "d" with a random distribution (expected to fit a
-        Gaussian). Also provides goodness-of-fit for the Gaussian.
-
-        Args:
-            d (float): value to compare to random distribution.
-            rand_distr (np.ndarray): random distribution.
-
-        Returns:
-            tuple: Z, Zpvalue, KS, KSpvalue.
-        '''
-
-        # Fit Gaussian
-        mu, sigma = norm.fit(rand_distr)
-
-        # Calculate significance
-        Z = (d - mu) / sigma
-        Zpval = norm.cdf(d, mu, sigma)
-        if .5 < Zpval: Zpval = 1 - Zpval
-        Zpval *= 2
-
-        # Calculate goodness-of-fit
-        obs = np.histogram(rand_distr, bins = 100, density = True)[0]
-        exp = np.array(norm.pdf(np.linspace(0, 1, 100),
-            loc = mu, scale = sigma))
-        KS, KSpval = ks_2samp(obs, exp)
-
-        return((Z, Zpval, KS, KSpval))
-
-    def test_comparison(self, b, dfun = None, niter = 1000, skipSubset = False,
+    def test_comparison(self, b, distance = None, niter = 1000, skipSubset = False,
         progress = False, threads = 1):
         '''Compare two rank tables, providing p-value for significance against
-        random distribution (built with niter iterations), and Kolmogorov-
-        -Smirnov p-value of Gaussian goodnes-of-fit over the random
-        distribution. The goodness-of-fit is required for the proper calculation
-        of the significance p-value.
+        random distribution (built with niter iterations), and Shapiro-Wilk
+        p-value of Gaussian goodnes-of-fit over the random distribution. The
+        goodness-of-fit is required for the proper calculation of the
+        significance p-value.
 
         Args:
             b (MetricTable): second rank.
-            dfun (fun): distance function with index1, index2, mt1, mt2 input.
+            distance (str): distance metric type (see compare.DISTANCE_FUNS).
             niter (int): number of iterations to build the random distribution.
             skipSubset (bool): if the two ranks are already subsetted.
             progress (bool): show progress bar.
@@ -297,13 +291,16 @@ class RankTable(object):
                 random_distribution: niter distance DataFrames after shuffling..
                 Z: Z statistic.
                 Zpval: P-value calculated from Z.
-                KS: Kolmogorov-Smirnov statistic.
-                KSpval: p-value calculated from KS.
+                SW: Shapiro-Wilk statistic.
+                SWpval: p-value calculated from SW.
         '''
         
         assert niter >= 1, "at least one iteration is required."
 
-        dfun = dKT_iter if type(None) == type(dfun) else dfun
+        distance = "kt" if type(None) == type(distance) else distance
+        assert_msg = "unrecognized '%s' distance type. Available: %s" % (
+            distance, str(list(DISTANCE_FUNS.keys())))
+        assert distance in DISTANCE_FUNS.keys(), assert_msg
         threads = check_threads(threads)
 
         # Apply subsetting if needed
@@ -313,35 +310,33 @@ class RankTable(object):
         # Compare --------------------------------------------------------------
 
         if progress: print("> Calculating distances...")
-        dtab = a.compare(b, dfun, skipSubset = True,
+        dtab = a.compare(b, distance, skipSubset = True,
             progress = progress, threads = threads)
 
         if progress: print("> Building random distribution [n:%d]..." % niter)
-        rand_distr = a.build_rand_distr(b, dfun, niter, skipSubset = True,
+        rand_distr = a.build_rand_distr(b, distance, niter, skipSubset = True,
             progress = progress, threads = threads)
 
         if progress: print("> Calculating p-value(s)...")
 
-        Zpval_df = dtab.copy()
-        Zpval_df[Zpval_df >= 0] = np.nan
-        Z_df = Zpval_df.copy()
-        KSpval_df = Zpval_df.copy()
-        KS_df = Zpval_df.copy()
+        pval_df = dtab.copy()
+        pval_df[pval_df >= 0] = np.nan
         
         pgen = ((i, j) for i in dtab.index for j in dtab.columns)
         if progress: pgen = tqdm(pgen, total = dtab.shape[0] * dtab.shape[1])
         for (i, j) in pgen:
-            Z, Zpval, KS, KSpval = RankTable.compare_to_rand_distr(
-                dtab.loc[i, j], [d.loc[i, j] for d in rand_distr])
-            Z_df.loc[i, j] = Z
-            Zpval_df.loc[i, j] = Zpval
-            KS_df.loc[i, j] = KS
-            KSpval_df.loc[i, j] = KSpval
+            data = [d.loc[i, j] for d in rand_distr]
+
+            pval = percentileofscore(data, dtab.loc[i, j], "mean") / 100.
+            if pval > 0.5: pval = 1 - pval
+            pval *= 2.
+
+            pval_df.loc[i, j] = pval
 
         return({
-            "dist" : dtab, "random_distribution" : rand_distr,
-            "Z" : Z_df, "Zpval" : Zpval_df,
-            "KS" : KS_df, "KSpval" : KSpval_df
+            "dist" : dtab,
+            "random_distribution" : rand_distr,
+            "pval" : pval_df
         })
 
     def calc_KendallTau(self, b, *args, **kwargs):
@@ -349,32 +344,108 @@ class RankTable(object):
         the two RankTables. Additional parameters are passed to the self.compare
         function.
         '''
-        return self.compare(b, dKT_iter, *args, **kwargs)
-
-    def dKT(self, *args, **kwargs):
-        '''Alias for calc_KendallTau.'''
-        return self.calc_KendallTau(*args, **kwargs)
+        return self.compare(b, "kt", *args, **kwargs)
 
     def calc_KendallTau_weighted(self, b, *args, **kwargs):
         '''Calculate the weighted Kendall Tau distance between all the
         MetricTables in the two RankTables. Additional parameters are passed to
         the self.compare function.
         '''
-        return self.compare(b, dKTw_iter, *args, **kwargs)
+        return self.compare(b, "ktw", *args, **kwargs)
 
-    def dKTw(self, *args, **kwargs):
-        '''Alias for calc_KendallTau_weighted.'''
-        return self.calc_KendallTau_weighted(*args, **kwargs)
+    def calc_EarthMoversDistance(self, b, *args, **kwargs):
+        '''Calculate the Earth Mover's Distance between all the MetricTables in
+        the two RankTables. Additional parameters are passed to the self.compare
+        function.
+        '''
+        return self.compare(b, "emd", *args, **kwargs)
 
 
-def dKT_iter(aidx, bidx, a, b):
-    return a[aidx].dKT(b[bidx])
+def dKT_iter(aidx, bidx, a, b, shuffle = False):
+    '''Single MetricTable comparison with Kendall tau distance for RankTable
+    compare function. Needs to be outside the class to be pickled for Parallel.
 
-def dKTw_iter(aidx, bidx, a, b):
-    return a[aidx].dKTw(b[bidx])
+    Args:
+        aidx, bidx (int): index of metric to compare.
+        a, b (RankTable).
+        shuffle (bool): shuffle metrics before comparing them.
+    '''
+    a_regions = a._all_regions()
+    a = [a_regions[i] for i in np.argsort(a._df.iloc[:, aidx + 3].values)]
+    b_regions = b._all_regions()
+    b = [b_regions[i] for i in np.argsort(b._df.iloc[:, bidx + 3].values)]
 
-def compareNshuffle(a, b, dfun, skipSubset, *args, **kwargs):
-    return a.shuffle().compare(b.shuffle(), dfun, skipSubset)
+    if shuffle:
+        a = np.array(a)
+        b = np.array(b)
+        b = b[np.random.permutation(len(b))]
+        a = [tuple(a[i]) for i in range(a.shape[0])]
+        b = [tuple(b[i]) for i in range(b.shape[0])]
+
+    return calc_KendallTau(a, b)
+
+def dKTw_iter(aidx, bidx, a, b, shuffle = False):
+    '''Single MetricTable comparison with Kendall tau weighted distance for
+    RankTable compare function. Needs to be outside the class to be pickled for
+    Parallel.
+
+    Args:
+        aidx, bidx (int): index of metric to compare.
+        a, b (RankTable).
+        shuffle (bool): shuffle metrics before comparing them.
+    '''
+    a = a._df.iloc[:, aidx + 3].copy().values
+    b = b._df.iloc[:, bidx + 3].copy().values
+
+    a_isorted = np.argsort(a)
+    a = a[a_isorted]
+    b = b[np.random.permutation(len(b))] if shuffle else b[a_isorted]
+
+    return calc_KendallTau_weighted(a, b)
+
+def dEMD_iter(aidx, bidx, a, b, shuffle = False):
+    '''Single MetricTable comparison with Earth Mover's Distance for RankTable
+    compare function. Needs to be outside the class to be pickled for Parallel.
+    EMD is calculated for items sorted based on the 1st and 2nd rankings
+    separately, and then averaged.
+
+    Args:
+        aidx, bidx (int): index of metric to compare.
+        a, b (RankTable).
+        shuffle (bool): shuffle metrics before comparing them.
+    '''
+    a = a._df.iloc[:, aidx + 3].copy().values
+    a /= a.sum()
+
+    b = b._df.iloc[:, bidx + 3].copy().values
+    b /= b.sum()
+
+    distance_matrix = mk2DdistanceMatrix(len(a), len(b))
+
+    a_isorted = np.argsort(a)
+    b_asorted = b[np.random.permutation(len(b))] if shuffle else b[a_isorted]
+    a_asorted = a[a_isorted]
+
+    d  = calc_EarthMoversDistance(a_asorted, b_asorted, distance_matrix)
+
+    b_isorted = np.argsort(b)
+    a_bsorted = a[np.random.permutation(len(a))] if shuffle else a[b_isorted]
+    b_bsorted = b[b_isorted]
+
+    d += calc_EarthMoversDistance(a_bsorted, b_bsorted, distance_matrix)
+
+    return d / 2.
+
+def mk2DdistanceMatrix(d0, d1):
+    ''''''
+    distance_matrix = np.zeros((d0, d1))
+    for i in range(distance_matrix.shape[0]):
+        distance_matrix[i, :] = range(distance_matrix.shape[1])
+        distance_matrix[i, :] = np.absolute(distance_matrix[i, :] - i)
+    return distance_matrix
+
+def compareNshuffle(a, b, distance, skipSubset, *args, **kwargs):
+    return a.compare(b, distance, True, skipSubset)
 
 
 class MetricTable(object):
@@ -509,7 +580,7 @@ class MetricTable(object):
         '''
         df = self._df.copy()
         a = np.array(self._all_regions())
-        np.random.shuffle(a)
+        a = a[np.random.permutation(len(a))]
         df.iloc[:, :3] = a
         return MetricTable(df = df)
 
@@ -527,23 +598,7 @@ class MetricTable(object):
         a = self
         if not skipSubset: a, b = a._subset(b)
 
-        # For each pair of ordered elements in a, if their ordered is inverted
-        # in b, then count it. Divide the count by the number of couples.
-        rsize = len(a) # Store in a variable for simplicity
-        blist = [a._all_regions().index(r) for r in b.iter_regions()]
-        n = 0
-        for i in range(rsize):
-            for j in range(i + 1, rsize):
-                if blist[i] > blist[j]:
-                    n += 1
-        d = n / ((rsize * (rsize - 1)) / 2)
-
-        # Output
-        return d
-
-    def dKT(self, *args, **kwargs):
-        '''Alias for calc_KendallTau.'''
-        return self.calc_KendallTau(*args, **kwargs)
+        return calc_KendallTau(a._all_regions(), b._all_regions(), progress)
 
     def calc_KendallTau_weighted(self, b, skipSubset = False, progress = False):
         '''Calculate Kendall tau distance between two MetricTables.
@@ -558,46 +613,155 @@ class MetricTable(object):
         a = self
         if not skipSubset: a, b = a._subset(b)
 
-        rsize = len(a) # Store in a variable for simplicity
+        b_ordered = []
+        for r in a.iter_regions():
+            b_ordered.append(b.mcol[b._all_regions().index(r)])
+        
+        return calc_KendallTau_weighted(a.mcol, b_ordered, progress)
 
-        # Calculate denominators
-        pgen = ((i, j) for i in range(rsize) for j in range(i + 1, rsize))
+    def calc_EarthMoversDistance(self, b, skipSubset = False):
+        '''Calculate Kendall tau distance between two MetricTables.
+        The distance is calculated only on the intersection between the tables.
 
-        Dn1 = 0
-        Dn2 = 0
-        for i in tqdm(range(rsize)):
-            for j in range(i + 1, rsize):
-                Dn1 += np.absolute(a.mcol[i] - a.mcol[j])
-                Dn2 += np.absolute(b.mcol[i] - b.mcol[j])
-        Dn1 = 1 if 0 == Dn1 else Dn1
-        Dn2 = 1 if 0 == Dn2 else Dn2
+        Args:
+            b (MetricTable): .
+            skipSubset (bool): .
+        '''
 
-        blist = [b.mcol[b._all_regions().index(r)] for r in a.iter_regions()]
+        # Apply subsetting if needed
+        a = self
+        if not skipSubset: a, b = a._subset(b)
 
-        w = 0   # Weight of discordant pairs
-        t = 0   # Total weight for normalization
-        for i in range(rsize):
-            for j in range(i + 1, rsize):
-                wtmp  = np.absolute(a.mcol[i] - a.mcol[j]) / Dn1
-                wtmp += np.absolute(b.mcol[i] - b.mcol[j]) / Dn2
-                wtmp /= 2
+        b_asorted = []
+        for r in a.iter_regions():
+            b_asorted.append(b.mcol[b._all_regions().index(r)])
 
-                t += wtmp
-                if blist[i] > blist[j]:
-                    w += wtmp
+        a_bsorted = []
+        for r in b.iter_regions():
+            a_bsorted.append(a.mcol[a._all_regions().index(r)])
 
-        t *= 2
-        d = w / t
+        distance_matrix = mk2DdistanceMatrix(len(a), len(b))
+        
+        d  = calc_EarthMoversDistance(a.mcol, b_asorted, distance_matrix)
+        d += calc_EarthMoversDistance(a_bsorted, b.mcol, distance_matrix)
 
-        # Output
-        return d
-
-    def dKTw(self, *args, **kwargs):
-        '''Alias for calc_KendallTau_weighted.'''
-        return self.calc_KendallTau_weighted(*args, **kwargs)
+        return d / 2.
 
 
-def plot_comparison(d, rand_distr, title, xlab):
+def calc_KendallTau(a, b, progress = False):
+    '''Calculate Kendall tau distance between two rankings. Each rank is a list
+    of sorted elements (ranked). The rank of an element is its index in the
+    list. The two list are expected to contain the same elements, possibly in
+    different order.
+
+    Args:
+        a (list): first rank.
+        b (list): second rank.
+        progress (bool): show progress bar.
+    '''
+
+    rank_size = len(a) # Store in a variable for simplicity
+    assert rank_size == len(b), "unmatched rank length."
+
+    # For each element in B, find its index in A.
+    b_reindexed = []
+    try:
+        for r in b:
+            b_reindexed.append(a.index(r))
+    except ValueError as e:
+        print("Element '%s' from rank 2 could not be found in rank 1.")
+        raise
+
+    # For each pair of ordered elements in A, if their order is inverted
+    # in B, then count a swap. Divide the swap count by the number of couples.
+    swap_count = 0
+    index_generator = (i for i in range(rank_size))
+    if progress: index_generator = tqdm(index_generator, total = rank_size)
+    for i in index_generator:
+        for j in range(i + 1, rank_size):
+            if b_reindexed[i] > b_reindexed[j]:
+                swap_count += 1
+    d = 2 * swap_count / (rank_size * (rank_size - 1))
+
+    return d
+
+def calc_KendallTau_weighted(a_weights, b_weights, progress = False):
+    '''Calculate Kendall tau distance between two rankings. Only the rank
+    weights are expected in input. The first weight list should match the first
+    ranking order (i.e., be sorted, increasing). The second weight list should
+    also match the order of the first ranking (i.e., possibly not sorted).
+
+    Args:
+        a_weights (list): weights from 1st ranking, in 1st ranking order.
+        b_weights (list): weights from 2nd ranking, in 2nd ranking order.
+        progress (bool): show progress bar.
+    '''
+
+    rank_size = len(a_weights) # Store in a variable for simplicity
+    assert rank_size == len(b_weights), "unmatched rank length."
+
+    a_total_weight = 0
+    b_total_weight = 0
+    a_swaps_weight = 0
+    b_swaps_weight = 0
+
+    igen = (i for i in range(rank_size))
+    if progress: igen = tqdm(igen, total = rank_size)
+
+    for i in igen:
+        for j in range(i + 1, rank_size):
+            assert a_weights[i] <= a_weights[j], "1st rank is not sorted."
+
+            if 2 == np.isnan([b_weights[i], b_weights[j]]).sum():
+                continue
+
+            a_difference = np.absolute(a_weights[i] - a_weights[j])
+            b_difference = np.absolute(b_weights[i] - b_weights[j])
+
+            a_total_weight += a_difference
+            b_total_weight += b_difference
+
+            if b_weights[i] > b_weights[j]:
+                a_swaps_weight += a_difference
+                b_swaps_weight += b_difference
+
+    assert_msg  = "if both ranks have constant weight, please use the "
+    assert_msg += "standard Kendall tau distance instead."
+    assert 0 != a_total_weight + b_total_weight, assert_msg
+
+    distance  = np.sum(a_swaps_weight / a_total_weight) / 2.
+    distance += np.sum(b_swaps_weight / b_total_weight) / 2.
+    
+    return distance
+
+def calc_EarthMoversDistance(a_weights, b_weights, distance_matrix):
+    '''Calculate Earth Mover's Distance between two rankings.
+
+    Args:
+        a_weights (np.ndarray): weights from 1st ranking.
+        b_weights (np.ndarray): weights from 2nd ranking.
+        distance_matrix (np.ndarray): matrix with pair-wise distance between
+                                      ranked items.
+    '''
+    a_weights = np.array(a_weights, dtype = np.float64)
+    b_weights = np.array(b_weights, dtype = np.float64)
+
+    b_weights_sorted = b_weights[np.argsort(b_weights)]
+    b_weights_sorted_rev = np.array(b_weights[::-1], dtype = np.float64)
+
+    a_extreme = np.zeros(a_weights.shape)
+    a_extreme[0] = a_weights.sum()
+    b_extreme = np.zeros(b_weights.shape)
+    b_extreme[-1] = b_weights.sum()
+
+    d  = pyemd.emd(a_weights, b_weights, distance_matrix,
+        extra_mass_penalty = -1.0)
+    d /= distance_matrix.max()
+
+    return d
+
+
+def plot_comparison(d, rand_distr, title, xlab, xlim):
     '''
     Single study plot.
 
@@ -614,32 +778,22 @@ def plot_comparison(d, rand_distr, title, xlab):
     # Prepare empty plot window
     fig, ax = pp.subplots()
 
-    # Fit Gaussian
-    mu, sigma = norm.fit(rand_distr)
-
     # Plot histogram
     ax.hist(rand_distr, 40, density = True, color = '#fddbc7')
 
-    # Overlay gaussian
-    x = np.linspace(0, 1, 1000)
-    ax.plot(x, norm.pdf(x, loc = mu, scale = sigma),
-        linestyle = '--', color = '#ef8a62', linewidth = 2)
-
     # Add significance thresholds
-    ax.axvline((norm.ppf(.005) * sigma) + mu,
-        color = '#2166ac', linewidth = 1.5)
-    ax.axvline((norm.ppf(.025) * sigma) + mu,
-        color = '#67a9cf', linewidth = 1.5)
-    ax.axvline((norm.ppf(1 - .005) * sigma) + mu,
-        color = '#2166ac', linewidth = 1.5)
-    ax.axvline((norm.ppf(1 - .025) * sigma) + mu,
-        color = '#67a9cf', linewidth = 1.5)
+    quantiles = scoreatpercentile(rand_distr, [0.5, 2.5, 97.5, 99.5])
+    ax.axvline(quantiles[0], color = '#2166ac', linewidth = 1.5)
+    ax.axvline(quantiles[1], color = '#67a9cf', linewidth = 1.5)
+    ax.axvline(quantiles[2], color = '#67a9cf', linewidth = 1.5)
+    ax.axvline(quantiles[3], color = '#2166ac', linewidth = 1.5)
 
     # Add current distance
     ax.axvline(d, linestyle = ':', color = '#b2182b', linewidth = 2)
 
     # Layout format
-    pp.xlim(0,1)
+    if type(None) != type(xlim):
+        pp.xlim(*xlim)
     pp.xlabel(xlab)
     pp.ylabel('Frequency')
     pp.suptitle("", fontsize = 11)
@@ -691,6 +845,20 @@ def plot_heatmap(data, ticks, cb_lab, outpath = None):
 
     # Output
     return(fig)
+
+# CONSTANTS ====================================================================
+
+DISTANCE_FUNS = {
+    "kt" :  dKT_iter,
+    "ktw" : dKTw_iter,
+    "emd" : dEMD_iter
+}
+
+DISTANCE_LABELS = {
+    "kt" :  "Kendall tau distance",
+    "ktw" : "Weighted Kendall tau distance",
+    "emd" : "Earth Mover's Distance"
+}
 
 # END ==========================================================================
 

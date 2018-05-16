@@ -17,7 +17,6 @@ from ggc.args import check_threads
 
 # CONSTANTS ====================================================================
 
-# Metric types and corresponding function for single-bin calculation
 CMETRICS = {
     'prob_2p' : lambda st: est_2p(st, calc_p, ratio),
     'prob_f'  : lambda st: est_f(st, calc_p, ratio),
