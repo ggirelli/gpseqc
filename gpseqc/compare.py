@@ -14,7 +14,7 @@ import numpy as np
 import os
 import pandas as pd
 import pyemd
-from scipy.stats import norm, shapiro, wasserstein_distance
+from scipy.stats import percentileofscore, scoreatpercentile
 from tqdm import tqdm
 
 from ggc.args import check_threads
@@ -319,26 +319,24 @@ class RankTable(object):
 
         if progress: print("> Calculating p-value(s)...")
 
-        Zpval_df = dtab.copy()
-        Zpval_df[Zpval_df >= 0] = np.nan
-        Z_df = Zpval_df.copy()
-        SWpval_df = Zpval_df.copy()
-        SW_df = Zpval_df.copy()
+        pval_df = dtab.copy()
+        pval_df[pval_df >= 0] = np.nan
         
         pgen = ((i, j) for i in dtab.index for j in dtab.columns)
         if progress: pgen = tqdm(pgen, total = dtab.shape[0] * dtab.shape[1])
         for (i, j) in pgen:
-            Z, Zpval, SW, SWpval = compare2randDistr(
-                dtab.loc[i, j], [d.loc[i, j] for d in rand_distr])
-            Z_df.loc[i, j] = Z
-            Zpval_df.loc[i, j] = Zpval
-            SW_df.loc[i, j] = SW
-            SWpval_df.loc[i, j] = SWpval
+            data = [d.loc[i, j] for d in rand_distr]
+
+            pval = percentileofscore(data, dtab.loc[i, j])
+            if pval > 0.5: pval = 1 - pval
+            pval /= 2.
+
+            pval_df.loc[i, j] = pval
 
         return({
-            "dist" : dtab, "random_distribution" : rand_distr,
-            "Z" : Z_df, "Zpval" : Zpval_df,
-            "SW" : SW_df, "SWpval" : SWpval_df
+            "dist" : dtab,
+            "random_distribution" : rand_distr,
+            "pval" : pval_df
         })
 
     def calc_KendallTau(self, b, *args, **kwargs):
@@ -463,29 +461,6 @@ def mk2DdistanceMatrix(d0, d1):
 
 def compareNshuffle(a, b, distance, skipSubset, *args, **kwargs):
     return a.compare(b, distance, True, skipSubset)
-
-def compare2randDistr(d, rand_distr):
-    '''Compares a value "d" with a random distribution (expected to fit a
-    Gaussian). Also provides goodness-of-fit for the Gaussian.
-
-    Args:
-        d (float): value to compare to random distribution.
-        rand_distr (np.ndarray): random distribution.
-
-    Returns:
-        tuple: Z, Zpvalue, SW, SWpvalue.
-    '''
-
-    mu, sigma = norm.fit(rand_distr)
-
-    Z = (d - mu) / sigma
-    Zpval = norm.cdf(d, mu, sigma)
-    if .5 < Zpval: Zpval = 1 - Zpval
-    Zpval *= 2
-
-    W, Wpval = shapiro(rand_distr)
-
-    return((Z, Zpval, W, Wpval))
 
 
 class MetricTable(object):
@@ -792,16 +767,26 @@ def dKTw(*args, **kwargs):
     return calc_KendallTau_weighted(*args, **kwargs)
 
 def calc_EarthMoversDistance(a_weights, b_weights, distance_matrix):
-    ''''''
+    '''Calculate Earth Mover's Distance between two rankings.
+
+    Args:
+        a_weights (np.ndarray): weights from 1st ranking.
+        b_weights (np.ndarray): weights from 2nd ranking.
+        distance_matrix (np.ndarray): matrix with pair-wise distance between
+                                      ranked items.
+    '''
     a_weights = np.array(a_weights, dtype = np.float64)
     b_weights = np.array(b_weights, dtype = np.float64)
+
+    b_weights_sorted = b_weights[np.argsort(b_weights)]
+    b_weights_sorted_rev = np.array(b_weights[::-1], dtype = np.float64)
 
     a_extreme = np.zeros(a_weights.shape)
     a_extreme[0] = a_weights.sum()
     b_extreme = np.zeros(b_weights.shape)
     b_extreme[-1] = b_weights.sum()
 
-    d = pyemd.emd(a_weights, b_weights, distance_matrix,
+    d  = pyemd.emd(a_weights, b_weights, distance_matrix,
         extra_mass_penalty = -1.0)
     d /= distance_matrix.max()
 
@@ -810,6 +795,7 @@ def calc_EarthMoversDistance(a_weights, b_weights, distance_matrix):
 def emd(*args, **kwargs):
     '''Alias for calc_EarthMoversDistance.'''
     return calc_EarthMoversDistance(*args, **kwargs)
+
 
 def plot_comparison(d, rand_distr, title, xlab):
     '''
@@ -828,26 +814,15 @@ def plot_comparison(d, rand_distr, title, xlab):
     # Prepare empty plot window
     fig, ax = pp.subplots()
 
-    # Fit Gaussian
-    mu, sigma = norm.fit(rand_distr)
-
     # Plot histogram
     ax.hist(rand_distr, 40, density = True, color = '#fddbc7')
 
-    # Overlay gaussian
-    x = np.linspace(0, 1, 1000)
-    ax.plot(x, norm.pdf(x, loc = mu, scale = sigma),
-        linestyle = '--', color = '#ef8a62', linewidth = 2)
-
     # Add significance thresholds
-    ax.axvline((norm.ppf(.005) * sigma) + mu,
-        color = '#2166ac', linewidth = 1.5)
-    ax.axvline((norm.ppf(.025) * sigma) + mu,
-        color = '#67a9cf', linewidth = 1.5)
-    ax.axvline((norm.ppf(1 - .005) * sigma) + mu,
-        color = '#2166ac', linewidth = 1.5)
-    ax.axvline((norm.ppf(1 - .025) * sigma) + mu,
-        color = '#67a9cf', linewidth = 1.5)
+    quantiles = scoreatpercentile(rand_distr, [0.5, 2.5, 97.5, 99.5])
+    ax.axvline(quantiles[0], color = '#2166ac', linewidth = 1.5)
+    ax.axvline(quantiles[1], color = '#67a9cf', linewidth = 1.5)
+    ax.axvline(quantiles[2], color = '#67a9cf', linewidth = 1.5)
+    ax.axvline(quantiles[3], color = '#2166ac', linewidth = 1.5)
 
     # Add current distance
     ax.axvline(d, linestyle = ':', color = '#b2182b', linewidth = 2)
