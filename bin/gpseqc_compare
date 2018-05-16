@@ -63,18 +63,20 @@ from gpseqc.compare import plot_comparison, plot_heatmap
 parser = argparse.ArgumentParser(description = """
 Description:
  Centrality ranking comparison: calculate distance between centrality
- rankings.
- 
- Please, note that the comparison is performed only on the intersection of
- the two rankings. If they do not intersect, an error message is displayed.
+ rankings. Please, note that the comparison is performed only on the
+ intersection of the two rankings. If they do not intersect, an error message is
+ displayed.
 
 Notes:
 
  # Distance --------------------------------------------------------------------
 
-  The Kendall tau (kt) distance ...
-
-  The Kendall tau weighted (ktw) distance ...
+  The Kendall tau (kt) distance counts the number of swaps required to convert
+  one ranking into the other. The Kendall tau weighted (ktw) distance does the
+  same, while taking into consideration also the weights used to rank the items.
+  The Earth Mover's Distance (EMD) is an alternative approach that takes into
+  account both the order and the weights. For more details, refer to the online
+  documentation: https://github.com/ggirelli/gpseqc
 
  # -----------------------------------------------------------------------------
 """, formatter_class = argparse.RawDescriptionHelpFormatter)
