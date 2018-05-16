@@ -328,8 +328,8 @@ class RankTable(object):
             data = [d.loc[i, j] for d in rand_distr]
 
             pval = percentileofscore(data, dtab.loc[i, j], "mean") / 100.
-            #if pval > 0.5: pval = 1 - pval
-            #pval /= 2.
+            if pval > 0.5: pval = 1 - pval
+            pval *= 2.
 
             pval_df.loc[i, j] = pval
 
@@ -759,33 +759,6 @@ def calc_EarthMoversDistance(a_weights, b_weights, distance_matrix):
     d /= distance_matrix.max()
 
     return d
-
-# def calcEMDbounds(a_weights, b_weights, distance_matrix):
-#     '''Calculate Earth Mover's Distance boundaries between two rankings.
-
-#     Args:
-#         a_weights (np.ndarray): weights from 1st ranking.
-#         b_weights (np.ndarray): weights from 2nd ranking.
-#         distance_matrix (np.ndarray): matrix with pair-wise distance between
-#                                       ranked items.
-    
-#     Returns:
-#         dmin, dmax: EMD boundaries
-#     '''
-#     a_weights = np.array(a_weights, dtype = np.float64)
-#     b_weights = np.array(b_weights, dtype = np.float64)
-
-#     a_weights.sort()
-#     b_weights.sort()
-#     dmin = pyemd.emd(a_weights, b_weights, distance_matrix,
-#         extra_mass_penalty = -1.0)
-
-#     b_weights = np.array(b_weights[::-1], dtype = np.float64)
-#     dmax = pyemd.emd(a_weights, b_weights, distance_matrix,
-#         extra_mass_penalty = -1.0)
-
-#     assert dmin < dmax
-#     return (dmin, dmax)
 
 
 def plot_comparison(d, rand_distr, title, xlab, xlim):
