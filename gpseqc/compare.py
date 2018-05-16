@@ -327,9 +327,9 @@ class RankTable(object):
         for (i, j) in pgen:
             data = [d.loc[i, j] for d in rand_distr]
 
-            pval = percentileofscore(data, dtab.loc[i, j]) / 100.
-            if pval > 0.5: pval = 1 - pval
-            pval /= 2.
+            pval = percentileofscore(data, dtab.loc[i, j], "mean") / 100.
+            #if pval > 0.5: pval = 1 - pval
+            #pval /= 2.
 
             pval_df.loc[i, j] = pval
 
@@ -788,7 +788,7 @@ def calc_EarthMoversDistance(a_weights, b_weights, distance_matrix):
 #     return (dmin, dmax)
 
 
-def plot_comparison(d, rand_distr, title, xlab):
+def plot_comparison(d, rand_distr, title, xlab, xlim):
     '''
     Single study plot.
 
@@ -819,7 +819,8 @@ def plot_comparison(d, rand_distr, title, xlab):
     ax.axvline(d, linestyle = ':', color = '#b2182b', linewidth = 2)
 
     # Layout format
-    pp.xlim(0,1)
+    if type(None) != type(xlim):
+        pp.xlim(*xlim)
     pp.xlabel(xlab)
     pp.ylabel('Frequency')
     pp.suptitle("", fontsize = 11)

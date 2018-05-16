@@ -257,6 +257,7 @@ else: # Run comparison test
         pgen = ((i, j) for i in dout["dist"].index
             for j in dout["dist"].columns)
         pgen = tqdm(pgen, total = dout["dist"].shape[0] * dout["dist"].shape[1])
+        xlim = (0, 1) if args.dist != "emd" else None
         for (i, j) in pgen:
             title  = "Dist [%s]: %.4f\n" % (args.dist, dout["dist"].loc[i, j])
             title += "R1: %s; R2: %s" % (i, j)
@@ -264,7 +265,7 @@ else: # Run comparison test
             title += " p.val: %.2E;" % dout["pval"].loc[i, j]
             plot_comparison(dout["dist"].loc[i, j],
                 [d.loc[i, j] for d in dout["random_distribution"]],
-                title, dlabel).savefig(outpdf, format = 'pdf')
+                title, dlabel, xlim).savefig(outpdf, format = 'pdf')
             pp.close('all')
         outpdf.close()
 
