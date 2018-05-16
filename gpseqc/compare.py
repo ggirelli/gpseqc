@@ -14,7 +14,7 @@ import numpy as np
 import os
 import pandas as pd
 import pyemd
-from scipy.stats import norm, shapiro
+from scipy.stats import norm, shapiro, wasserstein_distance
 from tqdm import tqdm
 
 from ggc.args import check_threads
@@ -432,23 +432,21 @@ def dEMD_iter(aidx, bidx, a, b, shuffle = False):
         shuffle (bool): shuffle metrics before comparing them.
     '''
     a = a._df.iloc[:, aidx + 3].copy().values
-    a -= a.min()
-    a /= a.max()
+    a /= a.sum()
 
     b = b._df.iloc[:, bidx + 3].copy().values
-    b -= b.min()
-    b /= b.max()
+    b /= b.sum()
 
     distance_matrix = mk2DdistanceMatrix(len(a), len(b))
 
     a_isorted = np.argsort(a)
-    b_asorted = b[a_isorted]
+    b_asorted = b[np.random.permutation(len(b))] if shuffle else b[a_isorted]
     a_asorted = a[a_isorted]
 
     d  = emd(a_asorted, b_asorted, distance_matrix)
 
     b_isorted = np.argsort(b)
-    a_bsorted = a[b_isorted]
+    a_bsorted = a[np.random.permutation(len(a))] if shuffle else a[b_isorted]
     b_bsorted = b[b_isorted]
 
     d += emd(a_bsorted, b_bsorted, distance_matrix)
@@ -797,8 +795,17 @@ def calc_EarthMoversDistance(a_weights, b_weights, distance_matrix):
     ''''''
     a_weights = np.array(a_weights, dtype = np.float64)
     b_weights = np.array(b_weights, dtype = np.float64)
-    return pyemd.emd(a_weights, b_weights, distance_matrix,
+
+    a_extreme = np.zeros(a_weights.shape)
+    a_extreme[0] = a_weights.sum()
+    b_extreme = np.zeros(b_weights.shape)
+    b_extreme[-1] = b_weights.sum()
+
+    d = pyemd.emd(a_weights, b_weights, distance_matrix,
         extra_mass_penalty = -1.0)
+    d /= distance_matrix.max()
+
+    return d
 
 def emd(*args, **kwargs):
     '''Alias for calc_EarthMoversDistance.'''

@@ -82,6 +82,41 @@ def test_compare2randDistr():
     Zpval *= 2
     assert 0.9822733103866876 == Zpval
 
+def test_mk2DdistanceMatrix():
+    distance_matrix = mk2DdistanceMatrix(10, 10)
+    for i in range(distance_matrix.shape[0]):
+        for j in range(distance_matrix.shape[0]):
+            assert np.absolute(j - i) == distance_matrix[i, j]
+
+def test_EMD():
+    a_weights = r1.iloc[:, 3]
+    a_weights /= a_weights.sum()
+    b_weights = r1.iloc[:, 4]
+    b_weights /= b_weights.sum()
+
+    distance_matrix = mk2DdistanceMatrix(len(a_weights), len(b_weights))
+
+    a_isorted = np.argsort(a_weights)
+    b_asorted = b_weights[a_isorted]
+    a_asorted = a_weights[a_isorted]
+    d1  = emd(a_asorted, b_asorted, distance_matrix)
+    assert 0.39171 == np.round(d1, 5)
+
+    b_isorted = np.argsort(b_weights)
+    a_bsorted = a_weights[b_isorted]
+    b_bsorted = b_weights[b_isorted]
+    d2 = emd(a_bsorted, b_bsorted, distance_matrix)
+    assert 0.18209 == np.round(d2, 5)
+
+    a_extreme = np.zeros(a_weights.shape)
+    a_extreme[0] = a_weights.sum()
+    b_extreme = np.zeros(b_weights.shape)
+    b_extreme[-1] = b_weights.sum()
+    assert distance_matrix.max() == np.round(pyemd.emd(a_extreme, b_extreme,
+        distance_matrix, extra_mass_penalty = -1.0))
+
+    assert 0.28690 == np.round(dEMD_iter(0, 1, rt1, rt1), 5)
+
 # END ==========================================================================
 
 ################################################################################
