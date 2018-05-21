@@ -143,12 +143,13 @@ class RankTable(object):
         a_regions = self._all_regions()
         b_regions = b._all_regions()
 
-        rows = []
+        indexes = []
         for r in b_regions:
             assert r in a_regions, "unmatched region sets."
-            rows.append(self._df.iloc[a_regions.index(r), :])
+            indexes.append(a_regions.index(r))
 
-        a = RankTable(df = pd.concat(rows, 1).transpose())
+        a = self._df.copy().iloc[indexes, :]
+        a = RankTable(df = a)
 
         return(a)
 
@@ -710,10 +711,10 @@ def calc_KendallTau_weighted(a_weights, b_weights, progress = False):
 
     for i in igen:
         for j in range(i + 1, rank_size):
-            assert a_weights[i] <= a_weights[j], "1st rank is not sorted."
+            if 0 < np.isnan([a_weights[i], a_weights[j]]).sum(): continue
+            if 0 < np.isnan([b_weights[i], b_weights[j]]).sum(): continue
 
-            if 2 == np.isnan([b_weights[i], b_weights[j]]).sum():
-                continue
+            assert a_weights[i] <= a_weights[j], "1st rank is not sorted."
 
             a_difference = np.absolute(a_weights[i] - a_weights[j])
             b_difference = np.absolute(b_weights[i] - b_weights[j])
