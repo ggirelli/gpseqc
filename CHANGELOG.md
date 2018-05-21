@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
+### ...
+
+
+
+## [2.0.5] - 2018-05-21
 ### Fixed
 - Sorting bug in `gpseqc_compare`.
 - EMD calculation when `np.nan` values are present, in `gpseqc_compare`.
@@ -97,6 +102,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 [Unreleased] https://github.com/ggirelli/gpseq-centrality-estimate  
+[2.0.5] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.5  
 [2.0.4] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.4  
 [2.0.3] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.3  
 [2.0.2] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.2  
