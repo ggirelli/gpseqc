@@ -34,6 +34,15 @@ r2 = pd.DataFrame.from_items([
 ])
 rt2 = RankTable(df = r2)
 
+r3 = pd.DataFrame.from_items([
+    ("chrom",    ["A", "C", "D", "N"]),
+    ("start",    ["0", "0", "0", "0"]),
+    ("end",      ["0", "0", "0", "0"]),
+    ("prob_2p",  [ 1,   5,   20, np.nan]),
+    ("prob_g",   [ 6,   5,   7,  5 ])
+])
+rt3 = RankTable(df = r3)
+
 rs = [("A", "0", "0"), ("B", "0", "0"), ("C", "0", "0"), ("D", "0", "0")]
 
 # FUNCTIONS ====================================================================
@@ -64,15 +73,21 @@ def test_MetricTable():
 def test_MetricTable_KendallTau():
     mt1 = rt1[0]
     mt2 = rt1[1]
+    mt3 = rt3[0]
     assert 0 == mt1.calc_KendallTau(mt1)
     assert 0.5 == mt1.calc_KendallTau(mt2)
+    assert 0 == mt1.calc_KendallTau(mt3)
+    assert 1/3. == mt2.calc_KendallTau(mt3)
 
 def test_MetricTable_KendallTau_weighted():
     mt1 = rt1[0]
     mt2 = rt1[1]
+    mt3 = rt3[0]
     assert 0 == mt1.calc_KendallTau_weighted(mt1)
     assert 0.5101 == np.round(dKTw_iter(0, 1, rt1, rt1), 4)
     assert 0.5101 == np.round(mt1.calc_KendallTau_weighted(mt2), 4)
+    assert 0 == mt1.calc_KendallTau(mt3)
+    assert 0.1776 == np.round(mt2.calc_KendallTau_weighted(mt3), 4)
 
 def test_compare2randDistr():
     np.random.seed(654546)
@@ -117,6 +132,11 @@ def test_EMD():
         distance_matrix, extra_mass_penalty = -1.0))
 
     assert 0.28690 == np.round(dEMD_iter(0, 1, rt1, rt1), 5)
+
+    t1 = rt1 & rt3
+    t3 = rt3 & rt1
+    assert 0 == np.round(dEMD_iter(0, 0, t1, t3), 5)
+    assert 0.28526 == np.round(dEMD_iter(1, 0, t1, t3), 5)
 
 # END ==========================================================================
 

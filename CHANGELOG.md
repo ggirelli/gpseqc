@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## Unreleased
 ### Fixed
 - Sorting bug in `gpseqc_compare`.
+- EMD calculation when `np.nan` values are present, in `gpseqc_compare`.
 
 
 

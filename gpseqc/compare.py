@@ -415,10 +415,15 @@ def dEMD_iter(aidx, bidx, a, b, shuffle = False):
         a, b (RankTable).
         shuffle (bool): shuffle metrics before comparing them.
     '''
-    a = a._df.iloc[:, aidx + 3].copy().values
-    a /= a.sum()
 
-    b = b._df.iloc[:, bidx + 3].copy().values
+    a = a._df.iloc[:, aidx + 3].copy().values.astype(np.float64)
+    b = b._df.iloc[:, bidx + 3].copy().values.astype(np.float64)
+
+    nan_condition = np.logical_not(np.logical_or(np.isnan(a), np.isnan(b)))
+    a = a[nan_condition]
+    b = b[nan_condition]
+
+    a /= a.sum()
     b /= b.sum()
 
     distance_matrix = mk2DdistanceMatrix(len(a), len(b))
@@ -746,14 +751,6 @@ def calc_EarthMoversDistance(a_weights, b_weights, distance_matrix):
     '''
     a_weights = np.array(a_weights, dtype = np.float64)
     b_weights = np.array(b_weights, dtype = np.float64)
-
-    b_weights_sorted = b_weights[np.argsort(b_weights)]
-    b_weights_sorted_rev = np.array(b_weights[::-1], dtype = np.float64)
-
-    a_extreme = np.zeros(a_weights.shape)
-    a_extreme[0] = a_weights.sum()
-    b_extreme = np.zeros(b_weights.shape)
-    b_extreme[-1] = b_weights.sum()
 
     d  = pyemd.emd(a_weights, b_weights, distance_matrix,
         extra_mass_penalty = -1.0)
