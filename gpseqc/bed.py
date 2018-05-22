@@ -48,6 +48,30 @@ def calc_stats(bed):
 
     return(df)
 
+def parse_genome_size_file(ipath):
+    ''''''
+    
+    assert os.path.isfile(ipath), "file not found: %s" % ipath
+
+    chrom_sizes = {}
+    line_counter = 0
+
+    with open(ipath, "r+") as IH:
+        for line in IH:
+            line_counter += 1
+
+            if "\t" in line:
+                tmp_array = line.strip().split("\t")
+
+                if tmp_array[1].isdecimal():
+                    chrom_sizes[tmp_array[0]] = int(tmp_array[1])
+                else:
+                    print("Skipped line #%d, not decimal size." % line_counter)
+            else:
+                print("Skipped line #%d, single field found." % line_counter)
+
+    return(chrom_sizes)
+
 def get_chr_size(bed, d = None):
     '''Extract chromosome size from a bed file.
 
