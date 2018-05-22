@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
+###  Fixed
+- Assert error triggered by Kendall tau weighted when all elements in the ranking have the same weight.
+
 ### Added
 - Option to allow for custom centrality estimates when comparing rank tables with `gpseqc_compare` (`-C/--custom-estimates`).
 

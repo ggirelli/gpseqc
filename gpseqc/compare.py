@@ -76,6 +76,14 @@ class RankTable(object):
                 assert_msg += "\nAvailable: %s" % str(list(CMETRICS.keys()))
                 assert c in CMETRICS.keys(), assert_msg
 
+        # Remove rows with only nan
+        keep_ids = []
+        for i in range(self._df.shape[0]):
+            nan_count = np.isnan(self._df.iloc[i, 3:].values.tolist()).sum()
+            if nan_count != self._df.shape[1] - 3:
+                keep_ids.append(i)
+        self._df = self._df.iloc[keep_ids, :]
+
     def __getitem__(self, i):
         '''Return the i-th metric table.'''
         if i >= len(self):
@@ -740,7 +748,8 @@ def calc_KendallTau_weighted(a_weights, b_weights, progress = False):
 
     assert_msg  = "if both ranks have constant weight, please use the "
     assert_msg += "standard Kendall tau distance instead."
-    assert 0 != a_total_weight + b_total_weight, assert_msg
+    assert 0 != a_total_weight, assert_msg
+    assert 0 != b_total_weight, assert_msg
 
     distance  = np.sum(a_swaps_weight / a_total_weight) / 2.
     distance += np.sum(b_swaps_weight / b_total_weight) / 2.
