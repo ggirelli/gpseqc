@@ -35,14 +35,20 @@ class RankTable(object):
 
     _df = None
     _avail_metrics = []
+    _allow_custom = False
 
-    def __init__(self, path = None, sep = "\t", df = None):
+    def __init__(self, path = None, sep = "\t", df = None,
+        allow_custom = False):
         '''Read and parse rank table file.
 
         Args:
             path (str): path to rank table file.
             sep (str): field delimiter.
+            df (pd.DataFrame): alternative to path input.
+            allow_custom (bool): allow for custom metrics.
         '''
+
+        self._allow_custom = allow_custom
 
         if type(None) != type(path):
             assert os.path.isfile(path), "file not found: %s" % path
@@ -64,10 +70,11 @@ class RankTable(object):
         assert len(set(self._all_regions())) == self._df.shape[0], assert_msg
 
         self._avail_metrics = self._df.columns[3:]
-        for c in self._avail_metrics:
-            assert_msg = "unrecognized metric '%s'" % c
-            assert_msg += "\nAvailable: %s" % str(list(CMETRICS.keys()))
-            assert c in CMETRICS.keys(), assert_msg
+        if not allow_custom:
+            for c in self._avail_metrics:
+                assert_msg = "unrecognized metric '%s'" % c
+                assert_msg += "\nAvailable: %s" % str(list(CMETRICS.keys()))
+                assert c in CMETRICS.keys(), assert_msg
 
     def __getitem__(self, i):
         '''Return the i-th metric table.'''
@@ -124,7 +131,7 @@ class RankTable(object):
         df.index = range(df.shape[0])
         del regs
 
-        return RankTable(df = df)
+        return RankTable(df = df, allow_custom = self._allow_custom)
 
     def intersection(self, b):
         '''Return the intersection of two RankTables as a new RankTable.
@@ -149,7 +156,7 @@ class RankTable(object):
             indexes.append(a_regions.index(r))
 
         a = self._df.copy().iloc[indexes, :]
-        a = RankTable(df = a)
+        a = RankTable(df = a, allow_custom = self._allow_custom)
 
         return(a)
 
@@ -163,7 +170,7 @@ class RankTable(object):
         a = np.array(self._all_regions())
         a = a[np.random.permutation(len(a))]
         df.iloc[:, :3] = a
-        return RankTable(df = df)
+        return RankTable(df = df, allow_custom = self._allow_custom)
 
     def compare(self, b, distance = None, shuffle = False, skipSubset = False,
         progress = False, threads = 1):

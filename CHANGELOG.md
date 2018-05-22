@@ -7,7 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
-### ...
+### Added
+- Option to allow for custom centrality estimates when comparing rank tables with `gpseqc_compare` (`-C/--custom-estimates`).
 
 
 

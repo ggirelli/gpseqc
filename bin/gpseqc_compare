@@ -116,6 +116,9 @@ parser.add_argument('-S', '--seed', type = int, metavar = 'seed',
 parser.add_argument('-y', '--do-all', action = 'store_const',
     help = """Do not ask for settings confirmation and proceed.""",
     const = True, default = False)
+parser.add_argument('-C', '--custom-estimates', action = 'store_const',
+    help = """Allow for custom estimate metrics.""",
+    const = True, default = False)
 parser.add_argument('--no-test', action = 'store_const',
     help = """Do not calculate p-values, only distances.""",
     const = True, default = False)
@@ -124,7 +127,7 @@ parser.add_argument('--no-plot', action = 'store_const',
     const = True, default = False)
 
 # Version flag
-version = "2.0.2"
+version = "2.0.3"
 parser.add_argument('--version', action = 'version',
     version = '%s v%s' % (sys.argv[0], version,))
 
@@ -197,8 +200,8 @@ with open(os.path.join(args.outdir, "%ssettings%s.txt" % (
 
 # Read ranking tables
 print("Reading and parsing rank tables...")
-r1 = RankTable(args.rank1)
-r2 = RankTable(args.rank2)
+r1 = RankTable(args.rank1, allow_custom = args.custom_estimates)
+r2 = RankTable(args.rank2, allow_custom = args.custom_estimates)
 
 # Make intersection
 print("Subsetting rank tables...")
