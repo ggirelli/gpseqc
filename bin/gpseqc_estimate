@@ -137,6 +137,13 @@ csModeLabel = ["1:Universe", "2:Union", "3:Separate/NoEmpty", "4:Intersection"]
 parser.add_argument('-l', '--cutsite-bed', type = str,
 	help = """Path to cutsite bedfile. Required for -c1 when -g is not used.""",
 	metavar = "csBed", default = None)
+parser.add_argument('-G', '--genome-size', type = str,
+	help = """Path to genome file size. The genome file should tab delimited,
+	with no header and structured as follows: <chromName><TAB><chromSize>. It is
+	used only with chromosome wide bins to get a proper chromosome size.
+	Otherwise, the end of the last region on each chromosome is used as
+	chromosome size.""",
+	metavar = "chrSize", default = None)
 parser.add_argument('-b', '--bin-bed', type = str,
 	help = """Path to bin bedfile. If used, -s and -p are ignored.""",
 	metavar = "binBed", default = None)
@@ -183,7 +190,7 @@ parser.add_argument('-n', '--normalize', action = 'store_const',
 	const = True, default = False)
 
 # Version flag
-version = "2.0.7"
+version = "2.0.8"
 parser.add_argument('--version', action = 'version',
 	version = '%s v%s' % (sys.argv[0], version,))
 
@@ -231,6 +238,14 @@ for bp in args.bedfile:
 assert_msg = "missing -l option with -gc1."
 assertc = 1 == args.cutsite_mode and 0 == args.group_size
 assert not(assertc and type(None) == type(args.cutsite_bed)), assert_msg
+
+if type(None) != type(args.cutsite_bed):
+	"file not found: %s" % args.cutsite_bed
+	assert os.path.isfile(args.cutsite_bed), assert_msg
+
+if type(None) != type(args.genome_size):
+	"file not found: %s" % args.genome_size
+	assert os.path.isfile(args.genome_size), assert_msg
 
 # Bin size, bin step and group size must be positive
 assert 0 <= args.bin_size, "bin size must be a positive integer."
@@ -293,6 +308,9 @@ def print_settings(args, clear = True):
 
 	if 1 == args.cutsite_mode:
 		s += "    Cutsite : %s\n" % args.cutsite_bed
+
+	if type(None) != type(args.genome_size):
+		s += "Genome size : %s\n" % args.genome_size
 
 
 	if 0 != len(args.prefix): s += "     Prefix : '%s'\n" % args.prefix
@@ -366,7 +384,11 @@ for i in range(len(conds_nreads)):
 # (1) Identify & sort chromosomes ----------------------------------------------
 print("Identifying chromosomes...")
 
-chr_sizes = {}
+if type(None) != type(args.genome_size):
+	chr_sizes = bed.parse_genome_size_file(args.genome_size)
+else:
+	chr_sizes = {}
+
 for b in tqdm(args.bedfile):
 	chr_sizes = bed.get_chr_size(b, chr_sizes)
 

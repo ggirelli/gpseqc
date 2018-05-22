@@ -7,7 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
-### ...
+### Added
+- Chromosome size option to `gpseqc_estimate` when using chromosome wide bins. Using genome size file as in `bedtools`.
 
 
 
