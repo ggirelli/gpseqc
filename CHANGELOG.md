@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
+### ...
+- ...
+
+
+
+## [2.0.6] - 2018-05-22
 ###  Fixed
 - Assert error triggered by Kendall tau weighted when all elements in the ranking have the same weight.
 
@@ -107,6 +113,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 [Unreleased] https://github.com/ggirelli/gpseq-centrality-estimate  
+[2.0.6] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.6  
 [2.0.5] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.5  
 [2.0.4] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.4  
 [2.0.3] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.3  
