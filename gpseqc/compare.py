@@ -83,6 +83,7 @@ class RankTable(object):
             if nan_count != self._df.shape[1] - 3:
                 keep_ids.append(i)
         self._df = self._df.iloc[keep_ids, :]
+        self._df.index = range(self._df.shape[0])
 
     def __getitem__(self, i):
         '''Return the i-th metric table.'''
