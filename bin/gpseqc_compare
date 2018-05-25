@@ -40,6 +40,9 @@
 
 # DEPENDENCIES =================================================================
 
+import matplotlib
+matplotlib.use('ps')
+
 import argparse
 import datetime
 from matplotlib import pyplot as pp
