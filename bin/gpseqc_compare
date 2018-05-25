@@ -40,6 +40,9 @@
 
 # DEPENDENCIES =================================================================
 
+import matplotlib
+matplotlib.use('ps')
+
 import argparse
 import datetime
 from matplotlib import pyplot as pp
@@ -127,7 +130,7 @@ parser.add_argument('--no-plot', action = 'store_const',
     const = True, default = False)
 
 # Version flag
-version = "2.0.3"
+version = "2.0.4"
 parser.add_argument('--version', action = 'version',
     version = '%s v%s' % (sys.argv[0], version,))
 
