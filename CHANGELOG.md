@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Axis drop bug in `gpseqc_compare`.
 - Matplotlib back-end to work when DISPLAY is unavailable.
+- `-1` bug when intersecting in `gpseqc_estimate`.
 
 
 

@@ -214,8 +214,10 @@ def to_bins(bins, bed, noValues = False, skipEmpty = True):
             data.append("row_%d" % bi)
             data.append(i[-2] if float(i[-2]) >= 0 else "0")
             
-            if lab(i) == ".:-1--1": d["row_%d" % bi] = (int(i[-1]), bi, data)
-            else: d[lab(i)] = (int(i[-1]), bi, data)
+            if lab(i) == ".:-1--1":
+                d["row_%d" % bi] = (int(i[-1]), bi, data)
+            else:
+                d[lab(i)] = (int(i[-1]), bi, data)
 
             return(d)
 
@@ -227,11 +229,11 @@ def to_bins(bins, bed, noValues = False, skipEmpty = True):
                 d = d_update(d, i, bi)
                 bi += 1
 
-    else: # Retain all intersactions
+    else: # Retain all intersections
         for i in gen:
             data = i[:3]
             data.append("row_%d" % bi)
-            data.append(i[-2])
+            data.append(i[-2] if float(i[-2]) >= 0 else "0")
             d[bi] = (int(i[-1]), bi, data)
             bi += 1
 
