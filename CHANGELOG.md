@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
+### ...
+- ...
+
+
+
+## [2.0.7] - 2018-05-26
 ### Fixed
 - Axis drop bug in `gpseqc_compare`.
 - Matplotlib back-end to work when DISPLAY is unavailable.
@@ -115,6 +121,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 [Unreleased] https://github.com/ggirelli/gpseq-centrality-estimate  
+[2.0.7] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.7  
 [2.0.6] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.6  
 [2.0.5] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.5  
 [2.0.4] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.4  
