@@ -13,6 +13,8 @@ import os
 import pandas as pd
 import pybedtools as pbt
 
+from gpseqc import stats
+
 # FUNCTIONS ====================================================================
 
 def calc_stats(bed):
@@ -332,6 +334,18 @@ def to_combined_bins(bins, bed, fcomb = None):
     # Format as bed file
     s = "\n".join(["%s\t%d\t%d\t%s\t%d" % tuple(v) for v in d2.values()])
     return(pbt.BedTool(s, from_string = True))
+
+def identify_outliers(bed, stype, prob = .99, lim = 1.5):
+    ''''''
+    
+    assert_msg = "unrecognized score type, available: "
+    assert_msg += str(stats.OUTLIER_METHODS)
+    assert stype in OUTLIER_METHODS, assert_msg
+
+    if "IQR" == stype:
+        outliers = stats.score_outliers(bed['value'], stype, lim = lim)
+    else:
+        outliers = stats.score_outliers(bed['value'], stype, prob = prob)
 
 # END ==========================================================================
 

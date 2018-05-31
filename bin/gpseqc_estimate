@@ -53,7 +53,7 @@ from tqdm import tqdm
 
 from ggc.prompt import ask
 from ggc.args import check_threads, export_settings
-from gpseqc import bed, centrality, cutsite_domain
+from gpseqc import bed, centrality, cutsite_domain, stats
 
 # PARAMETERS ===================================================================
 
@@ -157,6 +157,11 @@ parser.add_argument('-g', '--group-size', type = int,
 	help = """Group size in bp. Used to group bins for statistics calculation.
 	binSize must be divisible by groupSize. Not used by default.""",
 	metavar = "groupSize", default = 0)
+parser.add_argument('-O', '--outliers', type = str, metavar = 'method',
+    default = "chi2", choices = stats.OUTLIER_METHODS,
+    help = """Outlier detection method. One of: 'Z' (Z-score), 't' 
+    (t-student, as Z*sqrt(n-2)/sqrt(n-1-Z^2)), 'chi2' (chi-square, as Z^2), 
+    'IQR' or 'MAD'. Default: 'chi2'.""")
 metrics = ['prob_2p', 'prob_f', 'prob_g', 'cor_2p', 'cor_f', 'cor_g', 'roc_2p',
 	'roc_f', 'roc_g', 'var_2p', 'var_f', 'ff_2p', 'ff_f', 'cv_2p', 'cv_f']
 parser.add_argument('-e', '--exclude', type = str, nargs = '*',
@@ -190,7 +195,7 @@ parser.add_argument('-n', '--normalize', action = 'store_const',
 	const = True, default = False)
 
 # Version flag
-version = "2.0.8"
+version = "2.0.9"
 parser.add_argument('--version', action = 'version',
 	version = '%s v%s' % (sys.argv[0], version,))
 
