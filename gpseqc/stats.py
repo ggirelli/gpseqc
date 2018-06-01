@@ -64,10 +64,10 @@ def score_outliers(data, stype, prob = None, lim = None):
         if type(None) == type(prob): return t_values
         pvalues =  t.cdf(t_values, n - 2)
 
-    if stype == "chisq":
-        chisquare = np.power(Z_value, 2)
+    if stype == "chi2":
+        chisquare = np.power(Z, 2)
         if type(None) == type(prob): return chisquare
-        pvalues =  chi2.cdf(chisquare, 1)
+        pvalues = chi2.cdf(chisquare, 1)
 
     if stype == "IQR":
         q1, q3 = mquantiles(data, [.25, .75])

@@ -302,7 +302,7 @@ def print_settings(args, clear = True):
 
 	if 0 == args.bin_size and type(None) == type(args.bin_bed):
 		s += " Using chr-wide bins.\n"
-	else:
+	elif type(None) == type(args.bin_bed):
 		s += "   Bin size : %d\n   Bin step : %d\n" % (
 			args.bin_size, args.bin_step)
 
@@ -313,6 +313,8 @@ def print_settings(args, clear = True):
 
 	if 1 == args.cutsite_mode:
 		s += "    Cutsite : %s\n" % args.cutsite_bed
+
+	s += "   Outliers : '%s'\n" % args.outliers
 
 	if type(None) != type(args.genome_size):
 		s += "Genome size : %s\n" % args.genome_size
@@ -385,6 +387,13 @@ conds_nreads = [len(b) for b in bedfiles]
 
 for i in range(len(conds_nreads)):
 	assert 0 != conds_nreads[i], "empty bedfile found: %s" % args.bedfile[i]
+
+# (0.5) Remove common outliers -------------------------------------------------
+print("Remove common outliers...")
+
+outlier_beds = [bed.identify_outliers(b, args.outliers) for b in tqdm(bedfiles)]
+
+import sys; sys.exit()
 
 # (1) Identify & sort chromosomes ----------------------------------------------
 print("Identifying chromosomes...")

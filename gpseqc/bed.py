@@ -336,16 +336,48 @@ def to_combined_bins(bins, bed, fcomb = None):
     return(pbt.BedTool(s, from_string = True))
 
 def identify_outliers(bed, stype, prob = .99, lim = 1.5):
-    ''''''
-    
-    assert_msg = "unrecognized score type, available: "
-    assert_msg += str(stats.OUTLIER_METHODS)
-    assert stype in OUTLIER_METHODS, assert_msg
+    '''Select only the outliers from a bed file.
+
+    Args:
+        bed (pbt.BedTool).
+        stype (str): outlier score type. "Z" calculates normal scores, "t"
+            calculates t-Student scores, "chi2" gives chi-squared scores. "IQR"
+            considers only values lower than or equal to the first quartile or
+            greater than or equal to the third quartile, and sets the  score to
+            the ratio between the distance to the closest quartile and the IQR.
+            The score for values between the first and third quartiles is set to
+            0. "MAD" gives the difference between each value and the median,
+            divided by the median absolute deviation.
+        prob (float): if set, the corresponding p-values instead of scores are
+            given. If set to 1, p-values are returned. otherwise, a logical
+            vector is formed, indicating which values are exceeding the
+            specified threshold. "IQR" mode does not support probabilities, use
+            the lim argument instead.
+        lim (float): this value can be set for "IQR" scores, to form a logical
+            vector for scores that exceed the limit (after module).
+    Returns:
+        pbt.BedTool: outliers bed.
+    '''
+
+    scores = np.array([float(region.score) for region in bed])
 
     if "IQR" == stype:
-        outliers = stats.score_outliers(bed['value'], stype, lim = lim)
+        outliers = stats.score_outliers(scores, stype, lim = lim)
     else:
-        outliers = stats.score_outliers(bed['value'], stype, prob = prob)
+        outliers = stats.score_outliers(scores, stype, prob = prob)
+
+    outliers = np.where(outliers)[0]
+
+    record_id = 0
+    outliers_data = []
+    with open(bed.fn, "r+") as IH:
+        for record in IH:
+            if not record.startswith("track"):
+                if record_id in outliers:
+                    outliers_data.append(record)
+                record_id += 1
+
+    return pbt.BedTool("".join(outliers_data), from_string = True)
 
 # END ==========================================================================
 
