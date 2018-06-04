@@ -193,9 +193,15 @@ parser.add_argument('-d', '--debug-mode', action = 'store_const',
 parser.add_argument('-n', '--normalize', action = 'store_const',
 	help = """Use last condition for normalization.""",
 	const = True, default = False)
+parser.add_argument('-k', '--keep-outliers', action = 'store_const',
+	help = """Do not remove common outliers.""",
+	const = True, default = False)
+parser.add_argument('-a', '--remove-all-outliers', action = 'store_const',
+	help = """Remove all outliers instead of only common ones.""",
+	const = True, default = False)
 
 # Version flag
-version = "2.0.9"
+version = "3.0.0"
 parser.add_argument('--version', action = 'version',
 	version = '%s v%s' % (sys.argv[0], version,))
 
@@ -205,6 +211,9 @@ args = parser.parse_args()
 # Check input ------------------------------------------------------------------
 
 args.threads = check_threads(args.threads)
+
+assert_msg = "options -k and -a cannot be used together."
+assert not (args.remove_all_outliers and args.keep_outliers), assert_msg
 
 assert_msg = "folder expected, file found: %s" % args.output
 assert not os.path.isfile(args.output), assert_msg
@@ -314,7 +323,12 @@ def print_settings(args, clear = True):
 	if 1 == args.cutsite_mode:
 		s += "    Cutsite : %s\n" % args.cutsite_bed
 
-	s += "   Outliers : '%s'\n" % args.outliers
+	flag = " (remove all)" if args.remove_all_outliers else ""
+
+	if args.keep_outliers:
+		s += "   Outliers : do not remove.\n"
+	else:
+		s += "   Outliers : '%s'%s\n" % (args.outliers, flag)
 
 	if type(None) != type(args.genome_size):
 		s += "Genome size : %s\n" % args.genome_size
@@ -389,11 +403,23 @@ for i in range(len(conds_nreads)):
 	assert 0 != conds_nreads[i], "empty bedfile found: %s" % args.bedfile[i]
 
 # (0.5) Remove common outliers -------------------------------------------------
-print("Remove common outliers...")
+if not args.keep_outliers:
+	print("Identify outliers...")
+	outlier_beds = []
+	for b in tqdm(bedfiles):
+		outlier_beds.append(bed.identify_outliers(b, args.outliers))
 
-outlier_beds = [bed.identify_outliers(b, args.outliers) for b in tqdm(bedfiles)]
-
-import sys; sys.exit()
+	# Simple direct intersection/difference are possible since in GPSeq the
+	# bed files contain cutsite regions, which cannot overlap per definition
+	if args.remove_all_outliers:
+		for i in range(len(outlier_beds)):
+			bedfiles[i] = bedfiles[i] - outlier_beds[i]
+	else:
+		print("Remove common outliers...")
+		common_outliers = outlier_beds[0]
+		for i in range(1, len(outlier_beds)):
+			common_outliers = common_outliers.intersect(outlier_beds[i])
+		bedfiles = [b - common_outliers for b in bedfiles]
 
 # (1) Identify & sort chromosomes ----------------------------------------------
 print("Identifying chromosomes...")
