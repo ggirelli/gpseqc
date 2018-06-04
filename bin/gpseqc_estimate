@@ -383,6 +383,8 @@ elif 0 == args.bin_size: descr += "bins.chrWide"
 else: descr += "bins.size%d.step%d" % (args.bin_size, args.bin_step)
 if 0 != args.group_size: descr += ".group%d" % args.group_size
 descr += ".csm%d" % args.cutsite_mode
+if not args.keep_outliers: descr += ".rmOutliers_%s" % args.outliers
+if args.remove_all_outliers: descr += ".rmAllOutliers"
 if args.normalize: descr += ".norm"
 
 # Create output folder if missing
