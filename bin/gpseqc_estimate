@@ -407,9 +407,28 @@ for i in range(len(conds_nreads)):
 # (0.5) Remove common outliers -------------------------------------------------
 if not args.keep_outliers:
 	print("Identify outliers...")
-	outlier_beds = []
-	for b in tqdm(bedfiles):
-		outlier_beds.append(bed.identify_outliers(b, args.outliers))
+
+	if 1 == args.threads:
+		outlier_beds = []
+		for b in tqdm(bedfiles):
+			outlier_beds.append(bed.identify_outliers(b, args.outliers))
+	else:
+		outlier_beds =  Parallel(n_jobs = args.threads, verbose = 11)(
+			delayed(bed.identify_outliers)(b, args.outliers)
+			for b in bedfiles)
+		
+	for bi in range(len(outlier_beds)):
+		thr = np.inf
+		with open(outlier_beds[bi].fn, "r+") as IH:
+			for line in IH:
+				value = float(line.strip().split("\t")[-1])
+				thr = value if value <= thr else thr
+		print("> Outlier threshold set to %.3f for '%s'." % (
+			thr, args.bedfile[bi]))
+		outlier_beds[bi].saveas("%s/%soutliers.%s.%s.bed" % (
+			args.output, args.prefix,
+			os.path.splitext(os.path.basename(args.bedfile[bi]))[0],
+			descr))
 
 	# Simple direct intersection/difference are possible since in GPSeq the
 	# bed files contain cutsite regions, which cannot overlap per definition
