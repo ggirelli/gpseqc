@@ -131,7 +131,7 @@ def mk_windows(chr_sizes, bsize, bstep):
     for (c, e) in chr_sizes.items():
         for start in range(0, e, bstep):
             s += "%s\t%d\t%d\t\n" % (c, start, start + bsize)
-    return(pbt.BedTool(s, from_string = True))
+    return(pbt.BedTool(s, from_string = True).sort())
 
 def normalize(normbed, bed):
     '''Normalize one bed over another. Discards empty intersections. The two bed
@@ -164,7 +164,7 @@ def normalize(normbed, bed):
         tmp.append("%.2f" % (a / b))
         s += "\t".join(tmp) + "\n"
 
-    return(pbt.BedTool(s, from_string = True))
+    return(pbt.BedTool(s, from_string = True).sort())
 
 def to_bins(bins, bed, noValues = False, skipEmpty = True):
     '''Assign regions to bins. Each bin will appear once per each intersecting
@@ -243,7 +243,7 @@ def to_bins(bins, bed, noValues = False, skipEmpty = True):
     d = "\n".join(["\t".join(x[2]) for x in d.values()])
 
     # Format as bed file
-    d = pbt.BedTool(d, from_string = True)
+    d = pbt.BedTool(d, from_string = True).sort()
     if not noValues: d = d.cut(range(5))
 
     return(d)
@@ -333,7 +333,7 @@ def to_combined_bins(bins, bed, fcomb = None):
 
     # Format as bed file
     s = "\n".join(["%s\t%d\t%d\t%s\t%d" % tuple(v) for v in d2.values()])
-    return(pbt.BedTool(s, from_string = True))
+    return(pbt.BedTool(s, from_string = True).sort())
 
 def identify_outliers(bed, stype, prob = .99, lim = 1.5):
     '''Select only the outliers from a bed file.
@@ -377,7 +377,7 @@ def identify_outliers(bed, stype, prob = .99, lim = 1.5):
                     outliers_data.append(record)
                 record_id += 1
 
-    return pbt.BedTool("".join(outliers_data), from_string = True)
+    return pbt.BedTool("".join(outliers_data), from_string = True).sort()
 
 # END ==========================================================================
 

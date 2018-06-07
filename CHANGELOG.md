@@ -12,6 +12,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 
+## [2.2.0] - 2018-06-07
+### Added
+- `gpseqc_estimate`
+    + Outlier export (only in `debug` mode).
+    + Added `alpha/lim` outlier options.
+    + Forced flushing of temporary files.
+    + Fixed *sorting* issues.
+    + Bed file masking at the beginning of the pipeline.
+
+### Changed
+- `gpseqc_estimate`
+    + Remove all outliers as default behavior.
+
+
+
 ## [2.1.0] - 2018-06-04
 ### Added
 - Outlier filter to `gpseqc_estimate`.
@@ -127,6 +142,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 [Unreleased] https://github.com/ggirelli/gpseq-centrality-estimate  
+[2.2.0] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.2.0  
 [2.1.0] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.1.0  
 [2.0.7] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.7  
 [2.0.6] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.0.6  

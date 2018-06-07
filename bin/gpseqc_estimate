@@ -137,6 +137,9 @@ csModeLabel = ["1:Universe", "2:Union", "3:Separate/NoEmpty", "4:Intersection"]
 parser.add_argument('-l', '--cutsite-bed', type = str,
 	help = """Path to cutsite bedfile. Required for -c1 when -g is not used.""",
 	metavar = "csBed", default = None)
+parser.add_argument('-m', '--mask-bed', type = str,
+	help = """Path to mask bedfile, containing regions to be masked at the
+	beginning of the pipeline.""", metavar = "mBed", default = None)
 parser.add_argument('-G', '--genome-size', type = str,
 	help = """Path to genome file size. The genome file should tab delimited,
 	with no header and structured as follows: <chromName><TAB><chromSize>. It is
@@ -207,7 +210,7 @@ parser.add_argument('-C', '--rm-common-outliers', action = 'store_const',
 	const = True, default = False)
 
 # Version flag
-version = "3.0.0"
+version = "3.2.0"
 parser.add_argument('--version', action = 'version',
 	version = '%s v%s' % (sys.argv[0], version,))
 
@@ -264,12 +267,16 @@ assert_msg = "missing -l option with -gc1."
 assertc = 1 == args.cutsite_mode and 0 == args.group_size
 assert not(assertc and type(None) == type(args.cutsite_bed)), assert_msg
 
+if type(None) != type(args.mask_bed):
+	assert_msg = "file not found: '%s'" % args.mask_bed
+	assert os.path.isfile(args.mask_bed), assert_msg
+
 if type(None) != type(args.cutsite_bed):
-	"file not found: %s" % args.cutsite_bed
+	assert_msg = "file not found: '%s'" % args.cutsite_bed
 	assert os.path.isfile(args.cutsite_bed), assert_msg
 
 if type(None) != type(args.genome_size):
-	"file not found: %s" % args.genome_size
+	assert_msg = "file not found: '%s'" % args.genome_size
 	assert os.path.isfile(args.genome_size), assert_msg
 
 # Bin size, bin step and group size must be positive
@@ -334,11 +341,14 @@ def print_settings(args, clear = True):
 	if 1 == args.cutsite_mode:
 		s += "    Cutsite : %s\n" % args.cutsite_bed
 
-	flag = " (remove common)" if args.rm_common_outliers else " (remove all)"
-
 	if args.keep_outliers:
 		s += "   Outliers : do not remove.\n"
 	else:
+		if args.rm_common_outliers:
+			flag = " (remove common)"
+		else:
+			flag = " (remove all)"
+
 		s += "\n   Outliers : '%s'%s\n" % (args.outliers, flag)
 
 		if args.outliers == "IQR":
@@ -365,7 +375,10 @@ def print_settings(args, clear = True):
 		s += "\n Included metrics:\n  %s\n" % ", ".join(args.include)
 
 	s += "\n    Threads : %d\n" % args.threads
-	s += " Output dir : %s\n  Bed files : \n" % args.output
+	s += " Output dir : %s\n" % args.output
+	if type(None) != args.mask_bed:
+		s += "       Mask : %s\n" % args.mask_bed
+	s += "  Bed files : \n"
 	s += "".join(["   (%d) %s\n" % (i + 1, args.bedfile[i])
 		for i in range(len(args.bedfile))])
 
@@ -415,11 +428,23 @@ with open(os.path.join(args.output, "%ssettings.%s%s.txt" % (
 # Parse all bed files ----------------------------------------------------------
 print("Parsing bedfiles and counting reads...")
 
-bedfiles = [pbt.BedTool(b) for b in args.bedfile]
+bedfiles = [pbt.BedTool(b).sort() for b in args.bedfile]
 conds_nreads = [len(b) for b in bedfiles]
 
 for i in range(len(conds_nreads)):
 	assert 0 != conds_nreads[i], "empty bedfile found: %s" % args.bedfile[i]
+
+# (0.4) Mask bed files ---------------------------------------------------------
+if type(None) != type(args.mask_bed):
+	print("Masking bed files...")
+
+	mask = pbt.BedTool(args.mask_bed).sort()
+
+	for bi in range(len(bedfiles)):
+		bedfiles[bi] = bedfiles[bi] - mask
+		if args.debug_mode:
+			bed_saveas(bedfiles[bi], "masked.%s.%s.tsv" % (
+				descr, os.path.basename(args.bedfile[bi])), args)
 
 # (0.5) Remove common outliers -------------------------------------------------
 if not args.keep_outliers:
@@ -429,11 +454,11 @@ if not args.keep_outliers:
 		outlier_beds = []
 		for b in tqdm(bedfiles):
 			outlier_beds.append(bed.identify_outliers(b, args.outliers,
-				prob = args.outlier_alpha, lim = args.outlier_limit))
+				prob = 1 - args.outlier_alpha, lim = args.outlier_limit))
 	else:
 		outlier_beds =  Parallel(n_jobs = args.threads, verbose = 11)(
 			delayed(bed.identify_outliers)(b, args.outliers,
-				prob = args.outlier_alpha, lim = args.outlier_limit)
+				prob = 1 - args.outlier_alpha, lim = args.outlier_limit)
 			for b in bedfiles)
 		
 	for bi in range(len(outlier_beds)):
@@ -444,10 +469,11 @@ if not args.keep_outliers:
 				thr = value if value <= thr else thr
 		print("> Outlier threshold set to %.3f for '%s'." % (
 			thr, args.bedfile[bi]))
-		outlier_beds[bi].saveas("%s/%soutliers.%s.%s.bed" % (
-			args.output, args.prefix,
-			os.path.splitext(os.path.basename(args.bedfile[bi]))[0],
-			descr))
+		if 0 != len(outlier_beds[bi]) and args.debug_mode:
+			outlier_beds[bi].saveas("%s/%soutliers.%s.%s.bed" % (
+				args.output, args.prefix,
+				os.path.splitext(os.path.basename(args.bedfile[bi]))[0],
+				descr))
 
 	# Simple direct intersection/difference are possible since in GPSeq the
 	# bed files contain cutsite regions, which cannot overlap per definition
@@ -477,11 +503,11 @@ print("Generating bins...")
 
 if not type(None) == type(args.bin_bed):
 	# Custom bins
-	bins = pbt.BedTool(args.bin_bed)
+	bins = pbt.BedTool(args.bin_bed).sort()
 elif 0 == args.bin_size and type(None) == type(args.bin_bed):
 	# Chromosome-wide bins
 	s = "\n".join(["%s\t%d\t%d\t" % (c, 0, e) for (c, e) in chr_sizes.items()])
-	bins = pbt.BedTool(s, from_string = True)
+	bins = pbt.BedTool(s, from_string = True).sort()
 else:
 	# Sub-chromosome bins
 	bins = bed.mk_windows(chr_sizes, args.bin_size, args.bin_step)
