@@ -162,8 +162,13 @@ parser.add_argument('-O', '--outliers', type = str, metavar = 'method',
     help = """Outlier detection method. One of: 'Z' (Z-score), 't' 
     (t-student, as Z*sqrt(n-2)/sqrt(n-1-Z^2)), 'chi2' (chi-square, as Z^2), 
     'IQR' or 'MAD'. Default: 'chi2'.""")
-metrics = ['prob_2p', 'prob_f', 'prob_g', 'cor_2p', 'cor_f', 'cor_g', 'roc_2p',
-	'roc_f', 'roc_g', 'var_2p', 'var_f', 'ff_2p', 'ff_f', 'cv_2p', 'cv_f']
+parser.add_argument('-a', '--outlier-alpha', type = float, metavar = "alpha",
+	help = """Significance level for the detection of outliers.
+	Default: 0.01""", default = 0.01)
+parser.add_argument('-L', '--outlier-limit', type = float, metavar = "lim",
+	help = """Threshold (limit) for the detection of outliers with the IQR
+	method. Default: 1.5""", default = 1.5)
+metrics = list(centrality.CMETRICS.keys())
 parser.add_argument('-e', '--exclude', type = str, nargs = '*',
 	help = """Space-separated list of metrics to exclude from calculation.
 	All metrics BUT the specified ones are calculated.""",
@@ -196,8 +201,9 @@ parser.add_argument('-n', '--normalize', action = 'store_const',
 parser.add_argument('-k', '--keep-outliers', action = 'store_const',
 	help = """Do not remove common outliers.""",
 	const = True, default = False)
-parser.add_argument('-a', '--remove-all-outliers', action = 'store_const',
-	help = """Remove all outliers instead of only common ones.""",
+parser.add_argument('-C', '--rm-common-outliers', action = 'store_const',
+	help = """Remove only outliers common to all bed files, instead of
+	all the outliers in each bed file.""",
 	const = True, default = False)
 
 # Version flag
@@ -212,8 +218,13 @@ args = parser.parse_args()
 
 args.threads = check_threads(args.threads)
 
-assert_msg = "options -k and -a cannot be used together."
-assert not (args.remove_all_outliers and args.keep_outliers), assert_msg
+assert_msg = "options -k and -C cannot be used together."
+assert not (args.rm_common_outliers and args.keep_outliers), assert_msg
+
+assert_msg = "alpha expected to be in the [0;1] interval."
+assert args.outlier_alpha >= 0 and args.outlier_alpha <= 1, assert_msg
+
+assert args.outlier_limit >= 0, "limit expected to be positive."
 
 assert_msg = "folder expected, file found: %s" % args.output
 assert not os.path.isfile(args.output), assert_msg
@@ -323,12 +334,17 @@ def print_settings(args, clear = True):
 	if 1 == args.cutsite_mode:
 		s += "    Cutsite : %s\n" % args.cutsite_bed
 
-	flag = " (remove all)" if args.remove_all_outliers else ""
+	flag = " (remove common)" if args.rm_common_outliers else " (remove all)"
 
 	if args.keep_outliers:
 		s += "   Outliers : do not remove.\n"
 	else:
-		s += "   Outliers : '%s'%s\n" % (args.outliers, flag)
+		s += "\n   Outliers : '%s'%s\n" % (args.outliers, flag)
+
+		if args.outliers == "IQR":
+			s += "      Limit : %.2f\n\n" % (args.outlier_limit)
+		else:
+			s += "      Alpha : %.2f\n\n" % (args.outlier_alpha)
 
 	if type(None) != type(args.genome_size):
 		s += "Genome size : %s\n" % args.genome_size
@@ -384,7 +400,8 @@ else: descr += "bins.size%d.step%d" % (args.bin_size, args.bin_step)
 if 0 != args.group_size: descr += ".group%d" % args.group_size
 descr += ".csm%d" % args.cutsite_mode
 if not args.keep_outliers: descr += ".rmOutliers_%s" % args.outliers
-if args.remove_all_outliers: descr += ".rmAllOutliers"
+if args.rm_common_outliers: descr += ".rmCommonOutliers"
+else: descr += ".rmAllOutliers"
 if args.normalize: descr += ".norm"
 
 # Create output folder if missing
@@ -411,10 +428,12 @@ if not args.keep_outliers:
 	if 1 == args.threads:
 		outlier_beds = []
 		for b in tqdm(bedfiles):
-			outlier_beds.append(bed.identify_outliers(b, args.outliers))
+			outlier_beds.append(bed.identify_outliers(b, args.outliers,
+				prob = args.outlier_alpha, lim = args.outlier_limit))
 	else:
 		outlier_beds =  Parallel(n_jobs = args.threads, verbose = 11)(
-			delayed(bed.identify_outliers)(b, args.outliers)
+			delayed(bed.identify_outliers)(b, args.outliers,
+				prob = args.outlier_alpha, lim = args.outlier_limit)
 			for b in bedfiles)
 		
 	for bi in range(len(outlier_beds)):
@@ -432,15 +451,15 @@ if not args.keep_outliers:
 
 	# Simple direct intersection/difference are possible since in GPSeq the
 	# bed files contain cutsite regions, which cannot overlap per definition
-	if args.remove_all_outliers:
-		for i in range(len(outlier_beds)):
-			bedfiles[i] = bedfiles[i] - outlier_beds[i]
-	else:
+	if args.rm_common_outliers:
 		print("Remove common outliers...")
 		common_outliers = outlier_beds[0]
 		for i in range(1, len(outlier_beds)):
 			common_outliers = common_outliers.intersect(outlier_beds[i])
 		bedfiles = [b - common_outliers for b in bedfiles]
+	else:
+		for i in range(len(outlier_beds)):
+			bedfiles[i] = bedfiles[i] - outlier_beds[i]
 
 # (1) Identify & sort chromosomes ----------------------------------------------
 print("Identifying chromosomes...")
