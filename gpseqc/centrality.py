@@ -32,7 +32,16 @@ CMETRICS = {
     'ff_2p'   : lambda st: est_2p(st, calc_ff, lambda x, y: x - y),
     'ff_f'    : lambda st: est_f(st, calc_ff, lambda x, y: x - y),
     'cv_2p'   : lambda st: est_2p(st, calc_cv, lambda x, y: x - y),
-    'cv_f'    : lambda st: est_f(st, calc_cv, lambda x, y: x - y)
+    'cv_f'    : lambda st: est_f(st, calc_cv, lambda x, y: x - y),
+    'svar_2p' : lambda st: est_2p(st, calc_var, ratio),
+    'svar_f'  : lambda st: est_f(st, calc_var, ratio),
+    'svar_g'  : lambda st: est_g(st, calc_var, ratio),
+    'scv_2p'  : lambda st: est_2p(st, calc_cv, ratio),
+    'scv_f'   : lambda st: est_f(st, calc_cv, ratio),
+    'scv_g'   : lambda st: est_g(st, calc_cv, ratio),
+    'sff_2p'  : lambda st: est_2p(st, calc_ff, ratio),
+    'sff_f'   : lambda st: est_f(st, calc_ff, ratio),
+    'sff_g'   : lambda st: est_g(st, calc_ff, ratio)
 }
 
 # FUNCTIONS ====================================================================
