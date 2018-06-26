@@ -42,6 +42,7 @@
 
 import argparse
 import datetime
+import inspect
 from joblib import delayed, Parallel
 import os
 import numpy as np
@@ -119,8 +120,14 @@ Notes:
   Use the -e option to provide a list of the comma-separated metrics not to be
   calculated, while the rest would be included. The available metrics are:
 
+ # Metrics ---------------------------------------------------------------------
+
+ - %s
+
  # -----------------------------------------------------------------------------
-""", formatter_class = argparse.RawDescriptionHelpFormatter)
+""" % ("\n - ".join([inspect.getsourcelines(f)[0][0].strip()
+	for (k, f) in centrality.CMETRICS.items()]))
+, formatter_class = argparse.RawDescriptionHelpFormatter)
 
 # Positional parameters
 parser.add_argument('bedfile', type = str, nargs = '+',
@@ -210,7 +217,7 @@ parser.add_argument('-C', '--rm-common-outliers', action = 'store_const',
 	const = True, default = False)
 
 # Version flag
-version = "3.2.0"
+version = "3.3.0"
 parser.add_argument('--version', action = 'version',
 	version = '%s v%s' % (sys.argv[0], version,))
 
