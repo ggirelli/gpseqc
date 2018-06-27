@@ -33,6 +33,18 @@ git pull
 sudo -H pip3 install .
 ```
 
+### Additional dependencies
+
+Most of the required dependencies are automatically install by `pip3`. Still, some require some manual steps. Specifically, `gpseqc` requires the following packages:
+
+* `tkinter`
+
+That on ubuntu can be easily installed with:
+
+```bash
+sudo apt install python3-tk
+```
+
 Usage
 ---
 
