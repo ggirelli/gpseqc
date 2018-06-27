@@ -39,7 +39,7 @@ Most of the required dependencies are automatically install by `pip3`. Still, so
 
 * `tkinter`
 
-That on ubuntu can be easily installed with:
+That on Ubuntu can be easily installed with:
 
 ```bash
 sudo apt install python3-tk
