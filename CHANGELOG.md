@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [2.3.0] - 2018-06-26
 ### Added
 - `gpseqc_estimate`
-    + New varaibility-based estimates, where conditions are combined in the same way as the probability-based ones. The names are the same, with a prefix `s`.
+    + New variability-based estimates, where conditions are combined in the same way as the probability-based ones. The names are the same, with a prefix `s`.
     + Estimates list and ermetic description in main help page.
 
 
