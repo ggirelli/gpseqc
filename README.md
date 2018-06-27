@@ -54,7 +54,7 @@ The `gpseqc_estimate` script allows to estimate regional nuclear centrality base
 
 #### Compare centrality ranks
 
-The `gpseqc_compare` script allows to compare different regional centrality ranks. Run `gpseqc_estimate -h` for more details.
+The `gpseqc_compare` script allows to compare different regional centrality ranks. Run `gpseqc_compare -h` for more details.
 
 Contributing
 ---
