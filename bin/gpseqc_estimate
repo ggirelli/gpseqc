@@ -222,7 +222,7 @@ parser.add_argument('-C', '--rm-common-outliers', action = 'store_const',
 	const = True, default = False)
 
 # Version flag
-version = "3.4.0"
+version = "3.4.1"
 parser.add_argument('--version', action = 'version',
 	version = '%s v%s' % (sys.argv[0], version,))
 
@@ -656,11 +656,10 @@ if type(None) != type(args.mask_out):
 	print("Masking centrality track...")
 
 	mask = pbt.BedTool(args.mask_out).sort()
-
 	bedEst = pbt.BedTool(est.to_string(header = False, index = False),
 		from_string = True)
 
-	bedEst = bedEst - mask
+	bedEst = bedEst.intersect(mask, v = True, f = 1.)
 	est = pd.read_csv(bedEst.fn, "\t", header = None, names = est.columns)
 df_saveas(est, "estimated.%s.tsv" % descr, args)
 
