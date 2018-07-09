@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
+### ...
+- ...
+
+
+
+## [2.3.1] - 2018-07-09
 ### Added
 - Option to mask `gpseqc_estimate` output (`-M`).
 
