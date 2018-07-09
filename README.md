@@ -18,7 +18,7 @@ cd gpseqc
 sudo -H pip3 install .
 ```
 
-To **test** your installation, run: `pytest --pyargs gpseqc`.
+To **test** your installation, run: `pytest-3 --pyargs gpseqc`.
 
 To **uninstall** run the following from within the repository folder:
 
@@ -33,6 +33,18 @@ git pull
 sudo -H pip3 install .
 ```
 
+### Additional dependencies
+
+Most of the required dependencies are automatically install by `pip3`. Still, some require some manual steps. Specifically, `gpseqc` requires the following packages:
+
+* `tkinter`
+
+That on Ubuntu can be easily installed with:
+
+```bash
+sudo apt install python3-tk
+```
+
 Usage
 ---
 
@@ -42,7 +54,7 @@ The `gpseqc_estimate` script allows to estimate regional nuclear centrality base
 
 #### Compare centrality ranks
 
-The `gpseqc_compare` script allows to compare different regional centrality ranks. Run `gpseqc_estimate -h` for more details.
+The `gpseqc_compare` script allows to compare different regional centrality ranks. Run `gpseqc_compare -h` for more details.
 
 Contributing
 ---
