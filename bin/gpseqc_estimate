@@ -64,16 +64,18 @@ Description:
 
  Estimate global centrality. The script performs the following steps:
   (1) Identify & sort chromosomes
-  (2) Generate bins
-  (3) Group cutsites (intersect)
-  (4) Normalize over last condition.
-  (5) Prepare domain
-  (6) Assign reads to bins (intersect)
-  (7) Calculate bin statistics
-  (8) Combine condition into a single table
-  (9) Estimate centrality
-  (10) Rank bins
-  (11) Write output
+  (2) Remove outliers & mask bed-files
+  (3) Generate bins
+  (4) Group cutsites (intersect)
+  (5) Normalize over last condition.
+  (6) Prepare domain
+  (7) Assign reads to bins (intersect)
+  (8) Calculate bin statistics
+  (9) Combine condition into a single table
+  (10) Estimate centrality
+  (11) Mask centrality track
+  (12) Rank bins
+  (13) Write output
 
   A visual schema is available at:
    https://milkr.io/ggirelli/GPSeq-centrality-estimate
@@ -145,8 +147,11 @@ parser.add_argument('-l', '--cutsite-bed', type = str,
 	help = """Path to cutsite bedfile. Required for -c1 when -g is not used.""",
 	metavar = "csBed", default = None)
 parser.add_argument('-m', '--mask-bed', type = str,
-	help = """Path to mask bedfile, containing regions to be masked at the
-	beginning of the pipeline.""", metavar = "mBed", default = None)
+	help = """Path to bed file containing regions to be masked in the input bed 
+	files.""", metavar = "mBed", default = None)
+parser.add_argument('-M', '--mask-out', type = str,
+	help = """Path to bed file containing regions to be masked in the 
+	output.""", metavar = "mOut", default = None)
 parser.add_argument('-G', '--genome-size', type = str,
 	help = """Path to genome file size. The genome file should tab delimited,
 	with no header and structured as follows: <chromName><TAB><chromSize>. It is
@@ -217,7 +222,7 @@ parser.add_argument('-C', '--rm-common-outliers', action = 'store_const',
 	const = True, default = False)
 
 # Version flag
-version = "3.3.0"
+version = "3.4.0"
 parser.add_argument('--version', action = 'version',
 	version = '%s v%s' % (sys.argv[0], version,))
 
@@ -277,6 +282,9 @@ assert not(assertc and type(None) == type(args.cutsite_bed)), assert_msg
 if type(None) != type(args.mask_bed):
 	assert_msg = "file not found: '%s'" % args.mask_bed
 	assert os.path.isfile(args.mask_bed), assert_msg
+if type(None) != type(args.mask_out):
+	assert_msg = "file not found: '%s'" % args.mask_out
+	assert os.path.isfile(args.mask_out), assert_msg
 
 if type(None) != type(args.cutsite_bed):
 	assert_msg = "file not found: '%s'" % args.cutsite_bed
@@ -384,7 +392,9 @@ def print_settings(args, clear = True):
 	s += "\n    Threads : %d\n" % args.threads
 	s += " Output dir : %s\n" % args.output
 	if type(None) != args.mask_bed:
-		s += "       Mask : %s\n" % args.mask_bed
+		s += " Input mask : %s\n" % args.mask_bed
+	if type(None) != args.mask_out:
+		s += "Output mask : %s\n" % args.mask_out
 	s += "  Bed files : \n"
 	s += "".join(["   (%d) %s\n" % (i + 1, args.bedfile[i])
 		for i in range(len(args.bedfile))])
@@ -630,6 +640,18 @@ print("Combining information...")
 
 # Concatenate
 comb = pd.concat(bstats).sort_values(["chrom", "start", "end"])
+
+# (9.5) Mask combined table ----------------------------------------------------
+if type(None) != type(args.mask_out):
+	print("Masking combined information...")
+
+	mask = pbt.BedTool(args.mask_out).sort()
+
+	bedComb = pbt.BedTool(comb.to_string(header = False, index = False),
+		from_string = True)
+
+	bedComb = bedComb - mask
+	comb = pd.read_csv(bedComb.fn, "\t", header = None, names = comb.columns)
 df_saveas(comb, "combined.%s.tsv" % descr, args)
 
 # (9) Estimate centrality ------------------------------------------------------
