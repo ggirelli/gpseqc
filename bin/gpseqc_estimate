@@ -640,18 +640,6 @@ print("Combining information...")
 
 # Concatenate
 comb = pd.concat(bstats).sort_values(["chrom", "start", "end"])
-
-# (9.5) Mask combined table ----------------------------------------------------
-if type(None) != type(args.mask_out):
-	print("Masking combined information...")
-
-	mask = pbt.BedTool(args.mask_out).sort()
-
-	bedComb = pbt.BedTool(comb.to_string(header = False, index = False),
-		from_string = True)
-
-	bedComb = bedComb - mask
-	comb = pd.read_csv(bedComb.fn, "\t", header = None, names = comb.columns)
 df_saveas(comb, "combined.%s.tsv" % descr, args)
 
 # (9) Estimate centrality ------------------------------------------------------
@@ -662,6 +650,18 @@ if 1 == args.threads:
 	est = centrality.bin_estimate(comb, toCalc)
 else:
 	est = centrality.bin_estimate_parallel(comb, toCalc, args.threads)
+
+# (9.5) Mask centrality track --------------------------------------------------
+if type(None) != type(args.mask_out):
+	print("Masking centrality track...")
+
+	mask = pbt.BedTool(args.mask_out).sort()
+
+	bedEst = pbt.BedTool(est.to_string(header = False, index = False),
+		from_string = True)
+
+	bedEst = bedEst - mask
+	est = pd.read_csv(bedEst.fn, "\t", header = None, names = est.columns)
 df_saveas(est, "estimated.%s.tsv" % descr, args)
 
 # (10) Rank bins ---------------------------------------------------------------
