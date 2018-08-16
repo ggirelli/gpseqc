@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 
+## [2.3.2] - 2018-08-16
+## Fixed
+- `gpseqc_estimate`
+    + Fixed masking with `-M`, now removing all bins overlapping of even 1 bp with the masked regions.
+
+
+
 ## [2.3.1] - 2018-07-09
 ### Added
 - Option to mask `gpseqc_estimate` output (`-M`).

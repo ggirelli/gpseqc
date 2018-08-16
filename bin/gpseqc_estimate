@@ -222,7 +222,7 @@ parser.add_argument('-C', '--rm-common-outliers', action = 'store_const',
 	const = True, default = False)
 
 # Version flag
-version = "3.4.1"
+version = "3.4.2"
 parser.add_argument('--version', action = 'version',
 	version = '%s v%s' % (sys.argv[0], version,))
 
@@ -659,7 +659,7 @@ if type(None) != type(args.mask_out):
 	bedEst = pbt.BedTool(est.to_string(header = False, index = False),
 		from_string = True)
 
-	bedEst = bedEst.intersect(mask, v = True, f = 1.)
+	bedEst = bedEst.intersect(mask, v = True)
 	est = pd.read_csv(bedEst.fn, "\t", header = None, names = est.columns)
 df_saveas(est, "estimated.%s.tsv" % descr, args)
 
