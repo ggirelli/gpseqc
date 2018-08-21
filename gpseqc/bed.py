@@ -74,7 +74,7 @@ def parse_genome_size_file(ipath):
 
     return(chrom_sizes)
 
-def get_chr_size(bed, d = None):
+def get_chr_size(bed, di = None):
     '''Extract chromosome size from a bed file.
 
     Args:
@@ -87,19 +87,23 @@ def get_chr_size(bed, d = None):
     if type("") == type(bed):
         assert os.path.isfile(bed), "missing file: %s" % bed
 
-    if type(None) == type(d): d = {}
+    if type(None) == type(di): di = {}
+    do = {}
 
     with open(bed, "r+") as IH:
         for line in IH:
             if not line.startswith("track"):
                 i = line.strip().split("\t")
-                if not i[0] in d.keys():
-                    d[i[0]] = int(i[2])
+                if not i[0] in do.keys():
+                    if not i[0] in di.keys():
+                        do[i[0]] = int(i[2])
+                    else:
+                        do[i[0]] = di[i[0]]
                 else:
-                    if int(i[2]) >= d[i[0]]:
-                        d[i[0]] = int(i[2])
+                    if int(i[2]) >= do[i[0]]:
+                        do[i[0]] = int(i[2])
 
-    return(d)
+    return(do)
 
 def is_overlapping(bed):
     '''Check if a bed contains overlapping features.

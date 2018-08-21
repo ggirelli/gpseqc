@@ -7,8 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
-### ...
-- ...
+### Changed
+- `gpseqc_estimate`
+    + Use only chromosomes present in the input bed files when running chromosome-wide with `-G` option.
 
 
 
