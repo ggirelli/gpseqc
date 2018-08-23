@@ -696,7 +696,7 @@ df_saveas(rank, "ranked.%s.tsv" % descr, args)
 # (11) Rescale scores ----------------------------------------------------------
 
 rescaled = centrality.rescale(est, method = args.score_outliers,
-	alpha = args.score_outlier_alpha, lim = args.score_outlier_limit)
+	prob = args.score_outlier_alpha, lim = args.score_outlier_limit)
 df_saveas(rescaled, "rescaled.%s.tsv" % descr, args)
 
 # End --------------------------------------------------------------------------
