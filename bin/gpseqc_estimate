@@ -386,7 +386,7 @@ def print_settings(args, clear = True):
 			s += "      Alpha : %.2f\n" % (args.bed_outlier_alpha)
 
 		s += "\n Score outliers -----------------"
-		s += "\n     Method : '%s'%s\n" % (args.score_outliers, flag)
+		s += "\n     Method : '%s'\n" % args.score_outliers
 		if args.score_outliers == "IQR":
 			s += "      Limit : %.2f\n" % (args.score_outlier_limit)
 		else:
