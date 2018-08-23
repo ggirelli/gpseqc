@@ -128,15 +128,15 @@ parser.add_argument('--score-outlier-alpha', type = float, metavar = "alpha",
 parser.add_argument('--score-outlier-limit', type = float, metavar = "lim",
 	help = """Threshold (limit) for the detection of outliers with the IQR
 	method. Default: 1.5""", default = 1.5)
-metrics = list(centrality.CMETRICS.keys())
+scores = list(centrality.CMETRICS.keys())
 parser.add_argument('-e', '--exclude', type = str, nargs = '*',
-	help = """Space-separated list of metrics to exclude from calculation.
-	All metrics BUT the specified ones are calculated.""",
-	metavar = "metric", default = None, choices = metrics)
+	help = """Space-separated list of scores to exclude from calculation.
+	All scores BUT the specified ones are calculated.""",
+	metavar = "score", default = None, choices = scores)
 parser.add_argument('-i', '--include', type = str, nargs = '*',
-	help = """Space-separated list of metrics to be calculated.
-	Only the specified metrics are calculated.""",
-	metavar = "metric", default = None, choices = metrics)
+	help = """Space-separated list of scores to be calculated.
+	Only the specified scores are calculated.""",
+	metavar = "score", default = None, choices = scores)
 parser.add_argument('-r', '--prefix', type = str,
 	help = """Output name prefix.""", metavar = "prefix", default = "")
 parser.add_argument('-u', '--suffix', type = str,
@@ -279,10 +279,10 @@ doExclude = not type(None) == type(args.exclude)
 doInclude = not type(None) == type(args.include)
 assert not(doExclude and doInclude), "options -e/-i cannot be used together."
 
-# Identify selected metrics
-toCalc = metrics
+# Identify selected scores
+toCalc = scores
 if doInclude: toCalc = args.include
-if doExclude: toCalc = [m for m in metrics if m not in args.exclude]
+if doExclude: toCalc = [m for m in scores if m not in args.exclude]
 
 # All provided bed files must exist
 for bp in args.bedfile:
@@ -406,10 +406,10 @@ def print_settings(args, clear = True):
 
 	doExclude = not type(None) == type(args.exclude)
 	if doExclude:
-		s += "\n Excluded metrics:\n  %s\n" % ", ".join(args.exclude)
+		s += "\n Excluded scores:\n  %s\n" % ", ".join(args.exclude)
 	doInclude = not type(None) == type(args.include)
 	if doInclude:
-		s += "\n Included metrics:\n  %s\n" % ", ".join(args.include)
+		s += "\n Included scores:\n  %s\n" % ", ".join(args.include)
 
 	s += "\n    Threads : %d\n" % args.threads
 	s += " Output dir : %s\n" % args.output
@@ -451,7 +451,7 @@ elif 0 == args.bin_size: descr += "bins.chrWide"
 else: descr += "bins.size%d.step%d" % (args.bin_size, args.bin_step)
 if 0 != args.group_size: descr += ".group%d" % args.group_size
 descr += ".csm%d" % args.cutsite_mode
-if not args.keep_outliers: descr += ".rmOutliers_%s" % args.outliers
+if not args.keep_outliers: descr += ".rmOutliers_%s" % args.bed_outliers
 if args.rm_common_outliers: descr += ".rmCommonOutliers"
 else: descr += ".rmAllOutliers"
 if args.normalize: descr += ".norm"
@@ -492,12 +492,12 @@ if not args.keep_outliers:
 	if 1 == args.threads:
 		outlier_beds = []
 		for b in tqdm(bedfiles):
-			outlier_beds.append(bed.identify_outliers(b, args.outliers,
+			outlier_beds.append(bed.identify_outliers(b, args.bed_outliers,
 				prob = 1 - args.bed_outlier_alpha,
 				lim = args.bed_outlier_limit))
 	else:
 		outlier_beds =  Parallel(n_jobs = args.threads, verbose = 11)(
-			delayed(bed.identify_outliers)(b, args.outliers,
+			delayed(bed.identify_outliers)(b, args.bed_outliers,
 				prob = 1 - args.bed_outlier_alpha,
 				lim = args.bed_outlier_limit)
 			for b in bedfiles)
