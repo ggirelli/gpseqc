@@ -7,9 +7,27 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
+### ...
+- ...
+
+
+
+## [2.3.3] - 2018-08-16
+### Added
+- `gpseqc_estimate`
+    + Additional help page with `-H`.
+    + Added "rescaled" scores output, with scores rescaled based as `2**((score-min(score)/max(score-min(score))))`. Only non-outlier scores are considered in the calculation of min/max. Hence, non-outlier scores are in the [1;2] interval, lower outliers in the [0;1) interval, and upper outliers in the (2;Inf] interval.
+    + Added parameters to define outliers for rescaling: `--score-outliers`, `--score-outlier-alpha` and `--score-outlier-lim`.
+
 ### Changed
 - `gpseqc_estimate`
     + Use only chromosomes present in the input bed files when running chromosome-wide with `-G` option.
+    + Split script help page in `-h` for attributes and standard help, and `-H` for more descriptive and readable text.
+    + Renamed bed outlier parameters to avoid confusion with new score outliers:
+        * `--outliers` to `--bed-outliers`
+        * `--outlier-alpha` to `--bed-outlier-alpha`
+        * `--outlier-lim` to `--bed-outlier-lim`
+    + Renamed second parameter of `gpseqc.stats.score_outliers` to `method` (previously `stype`).
 
 
 
@@ -164,6 +182,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 [Unreleased] https://github.com/ggirelli/gpseq-centrality-estimate  
+[2.3.3] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.3.3  
 [2.3.2] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.3.2  
 [2.3.1] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.3.1  
 [2.3.0] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.3.0  

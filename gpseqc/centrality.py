@@ -15,6 +15,8 @@ from tqdm import tqdm
 
 from ggc.args import check_threads
 
+from gpseqc.stats import score_outliers
+
 # CONSTANTS ====================================================================
 
 CMETRICS = {
@@ -320,6 +322,43 @@ def rank(cdf, mlist, progress = True, chrWide = False):
     odf.columns = [m for m in mlist if m in cdf.columns]
 
     return(odf)
+
+def rescale(data, method = "IQR", prob = None, lim = 1.5):
+    '''Rescale estimated scores with selected method and prob/lim.
+
+    Args:
+        data (pd.DataFrame).
+        method (str): outlier score type. "Z" calculates normal scores, "t"
+            calculates t-Student scores, "chi2" gives chi-squared scores. "IQR"
+            considers only values lower than or equal to the first quartile or
+            greater than or equal to the third quartile, and sets the  score to
+            the ratio between the distance to the closest quartile and the IQR.
+            The score for values between the first and third quartiles is set to
+            0. "MAD" gives the difference between each value and the median,
+            divided by the median absolute deviation.
+        prob (float): if set, the corresponding p-values instead of scores are
+            given. If set to 1, p-values are returned. otherwise, a logical
+            vector is formed, indicating which values are exceeding the
+            specified threshold. "IQR" mode does not support probabilities, use
+            the lim argument instead.
+        lim (float): this value can be set for "IQR" scores, to form a logical
+            vector for scores that exceed the limit (after module).
+
+    Returns:
+        pd.DataFrame: rescaled estimated scores.
+    '''
+    estimateNamelist = data.columns[3:len(data.columns)]
+
+    for estimateName in estimateNamelist:
+        outliers = score_outliers(data.loc[:, estimateName], method, prob, lim)
+        non_outliers = np.logical_not(outliers)
+        points = data.loc[non_outliers, estimateName]
+        data.loc[:, estimateName] = data.loc[:, estimateName]-np.nanmin(points)
+        points = data.loc[non_outliers, estimateName]
+        data.loc[:, estimateName] = data.loc[:, estimateName]/np.nanmax(points)
+        data.loc[:, estimateName] = 2**data.loc[:, estimateName]
+
+    return(data)
 
 # END ==========================================================================
 

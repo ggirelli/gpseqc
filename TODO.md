@@ -3,7 +3,6 @@
 
 * Fix normalization to take number of cutsites into consideration.
 * Manually verify that cs_mode != 3 works as expected.
-* Implement score normalization for inter-sample comparison.
 
 # gpseqc_compare
 

@@ -59,77 +59,8 @@ from gpseqc import bed, centrality, cutsite_domain, stats
 # PARAMETERS ===================================================================
 
 # Add script description
-parser = argparse.ArgumentParser(description = """
-Description:
-
- Estimate global centrality. The script performs the following steps:
-  (1) Identify & sort chromosomes
-  (2) Remove outliers & mask bed-files
-  (3) Generate bins
-  (4) Group cutsites (intersect)
-  (5) Normalize over last condition.
-  (6) Prepare domain
-  (7) Assign reads to bins (intersect)
-  (8) Calculate bin statistics
-  (9) Combine condition into a single table
-  (10) Estimate centrality
-  (11) Mask centrality track
-  (12) Rank bins
-  (13) Write output
-
-  A visual schema is available at:
-   https://milkr.io/ggirelli/GPSeq-centrality-estimate
-
-Notes:
-
- # Cutsite domain --------------------------------------------------------------
-
-  The cutsite domain can be specified as follows:
-  1 - all genomic cutsites (universe)
-  2 - all cutsites restricted in the experiment (union)
-  3 - all cutsites restricted in a condition (separate)
-  4 - all cutsites restricted in all conditions (intersection)
-  Default is 3 (separate). Also, note that if option 1 is selected, an
-  additional argument -l is required.
-  
-  Statistics (mean, variance) metrics take into account only the cutsites
-  included in the specified cutsite domain. The same cutsite domain is used for
-  all estimates.
-
-  Option 1 requires a list of known genomic cutsites. If grouping is active,
-  only groups with at least one cutsite are retained, and the list of remaining
-  groups is used as the cutsite domain. In this case, each group is considered
-  as a 'cutsite'.
-  
-  Options 3 and 4 include an empty-cutsites/groups removal step. In this case,
-  they are removed before bin assignment, while empty bins are kept. Also,
-  normalization is performed after empty cutsite/group removal but before bin
-  assignment, i.e., either on the grouped or single cutsites.
- 
- # Resolution ------------------------------------------------------------------
-
-  Depending on the sequencing resolution, it might not be feasible to go for
-  single-cutsite resolution. Thus, cutsite can be grouped for the statistics
-  calculation using the -g option.
-  
-  In case of sub-chromosome bins, the ranking is done in an ordered
-  chromosome-wise manner.
- 
- # Select specific metrics -----------------------------------------------------
-
-  By default, all the available metrics are calculated. Use -i to provide a list
-  of the comma-separated metrics to calculate, while the rest would be excluded.
-  Use the -e option to provide a list of the comma-separated metrics not to be
-  calculated, while the rest would be included. The available metrics are:
-
- # Metrics ---------------------------------------------------------------------
-
- - %s
-
- # -----------------------------------------------------------------------------
-""" % ("\n - ".join([inspect.getsourcelines(f)[0][0].strip()
-	for (k, f) in centrality.CMETRICS.items()]))
-, formatter_class = argparse.RawDescriptionHelpFormatter)
+parser = argparse.ArgumentParser(
+	formatter_class = argparse.RawDescriptionHelpFormatter)
 
 # Positional parameters
 parser.add_argument('bedfile', type = str, nargs = '+',
@@ -137,6 +68,9 @@ parser.add_argument('bedfile', type = str, nargs = '+',
 restriction conditions intensity.""")
 
 # Optional parameters
+parser.add_argument('-H', '--help2', action = 'store_const',
+    help = """Shows additional information in a readable format and quit.""",
+    const = True, default = False)
 parser.add_argument('-o', '--output', type = str,
 	help = """Path to output folder.""", metavar = "outDir", required = True)
 parser.add_argument('-c', '--cutsite-mode', type = int,
@@ -172,15 +106,26 @@ parser.add_argument('-g', '--group-size', type = int,
 	help = """Group size in bp. Used to group bins for statistics calculation.
 	binSize must be divisible by groupSize. Not used by default.""",
 	metavar = "groupSize", default = 0)
-parser.add_argument('-O', '--outliers', type = str, metavar = 'method',
+parser.add_argument('--bed-outliers', type = str, metavar = 'method',
     default = "chi2", choices = stats.OUTLIER_METHODS,
     help = """Outlier detection method. One of: 'Z' (Z-score), 't' 
     (t-student, as Z*sqrt(n-2)/sqrt(n-1-Z^2)), 'chi2' (chi-square, as Z^2), 
     'IQR' or 'MAD'. Default: 'chi2'.""")
-parser.add_argument('-a', '--outlier-alpha', type = float, metavar = "alpha",
+parser.add_argument('--bed-outlier-alpha', type = float, metavar = "alpha",
 	help = """Significance level for the detection of outliers.
 	Default: 0.01""", default = 0.01)
-parser.add_argument('-L', '--outlier-limit', type = float, metavar = "lim",
+parser.add_argument('--bed-outlier-limit', type = float, metavar = "lim",
+	help = """Threshold (limit) for the detection of outliers with the IQR
+	method. Default: 1.5""", default = 1.5)
+parser.add_argument('--score-outliers', type = str, metavar = 'method',
+    default = "IQR", choices = stats.OUTLIER_METHODS,
+    help = """Outlier detection method. One of: 'Z' (Z-score), 't' 
+    (t-student, as Z*sqrt(n-2)/sqrt(n-1-Z^2)), 'chi2' (chi-square, as Z^2), 
+    'IQR' or 'MAD'. Default: 'IQR'.""")
+parser.add_argument('--score-outlier-alpha', type = float, metavar = "alpha",
+	help = """Significance level for the detection of outliers.
+	Default: 0.05""", default = 0.05)
+parser.add_argument('--score-outlier-limit', type = float, metavar = "lim",
 	help = """Threshold (limit) for the detection of outliers with the IQR
 	method. Default: 1.5""", default = 1.5)
 metrics = list(centrality.CMETRICS.keys())
@@ -222,40 +167,109 @@ parser.add_argument('-C', '--rm-common-outliers', action = 'store_const',
 	const = True, default = False)
 
 # Version flag
-version = "3.4.3"
+version = "3.5.0"
 parser.add_argument('--version', action = 'version',
 	version = '%s v%s' % (sys.argv[0], version,))
 
 # Parse arguments
 args = parser.parse_args()
 
+if args.help2:
+	print("""
+ Use 'gpseqc_estimate' to estimate global centrality.
+ The script performs the following steps:
+  (1) Identify & sort chromosomes
+  (2) Remove outliers & mask bed-files
+  (3) Generate bins
+  (4) Group cutsites (intersect)
+  (5) Normalize over last condition.
+  (6) Prepare domain
+  (7) Assign reads to bins (intersect)
+  (8) Calculate bin statistics
+  (9) Combine condition into a single table
+  (10) Estimate centrality
+  (11) Mask centrality track
+  (12) Rank bins
+  (13) Write output
+
+ # Cutsite domain --------------------------------------------------------------
+
+  The cutsite domain can be specified as follows:
+  1 - all genomic cutsites (universe)
+  2 - all cutsites restricted in the experiment (union)
+  3 - all cutsites restricted in a condition (separate)
+  4 - all cutsites restricted in all conditions (intersection)
+  Default is 3 (separate). Also, note that if option 1 is selected, an
+  additional argument -l is required.
+  
+  Statistics (mean, variance) scores take into account only the cutsites
+  included in the specified cutsite domain. The same cutsite domain is used for
+  all estimates.
+
+  Option 1 requires a list of known genomic cutsites. If grouping is active,
+  only groups with at least one cutsite are retained, and the list of remaining
+  groups is used as the cutsite domain. In this case, each group is considered
+  as a 'cutsite'.
+  
+  Options 3 and 4 include an empty-cutsites/groups removal step. In this case,
+  they are removed before bin assignment, while empty bins are kept. Also,
+  normalization is performed after empty cutsite/group removal but before bin
+  assignment, i.e., either on the grouped or single cutsites.
+ 
+ # Resolution ------------------------------------------------------------------
+
+  Depending on the sequencing resolution, it might not be feasible to go for
+  single-cutsite resolution. Thus, cutsite can be grouped for the statistics
+  calculation using the -g option.
+  
+  In case of sub-chromosome bins, the ranking is done in an ordered
+  chromosome-wise manner.
+ 
+ # Select specific scores -----------------------------------------------------
+
+  By default, all the available scores are calculated. Use -i to provide a list
+  of the comma-separated scores to calculate, while the rest would be excluded.
+  Use the -e option to provide a list of the comma-separated scores not to be
+  calculated, while the rest would be included. The available scores are:
+
+ # Scores ----------------------------------------------------------------------
+
+ - %s
+
+ # -----------------------------------------------------------------------------
+""" % ("\n - ".join([inspect.getsourcelines(f)[0][0].strip()
+	for (k, f) in centrality.CMETRICS.items()])))
+	sys.exit()
+
 # Check input ------------------------------------------------------------------
 
 args.threads = check_threads(args.threads)
 
-assert_msg = "options -k and -C cannot be used together."
-assert not (args.rm_common_outliers and args.keep_outliers), assert_msg
+assrtmsg = "options -k and -C cannot be used together."
+assert not (args.rm_common_outliers and args.keep_outliers), assrtmsg
 
-assert_msg = "alpha expected to be in the [0;1] interval."
-assert args.outlier_alpha >= 0 and args.outlier_alpha <= 1, assert_msg
+assrtmsg = "alpha expected to be in the [0;1] interval."
+assert args.bed_outlier_alpha >= 0 and args.bed_outlier_alpha <= 1, assrtmsg
+assert args.score_outlier_alpha >= 0 and args.score_outlier_alpha <= 1, assrtmsg
 
-assert args.outlier_limit >= 0, "limit expected to be positive."
+assert args.bed_outlier_limit >= 0, "limit expected to be positive."
+assert args.score_outlier_limit >= 0, "limit expected to be positive."
 
-assert_msg = "folder expected, file found: %s" % args.output
-assert not os.path.isfile(args.output), assert_msg
+assrtmsg = "folder expected, file found: %s" % args.output
+assert not os.path.isfile(args.output), assrtmsg
 
 # At least two bed files if not normalizing
-assert_msg = "at least two (2) GPSeq condition bedfiles,"
-assert_msg += " in increasing order of restriction"
-assert_msg += "intensity are required."
-assert 2 <= len(args.bedfile), assert_msg
+assrtmsg = "at least two (2) GPSeq condition bedfiles,"
+assrtmsg += " in increasing order of restriction"
+assrtmsg += "intensity are required."
+assert 2 <= len(args.bedfile), assrtmsg
 
 # At least 3 bed files if normalizing
 if args.normalize:
-	assert_msg = "at least two (3) GPSeq condition bedfiles,"
-	assert_msg += " in increasing order of restriction intensity are"
-	assert_msg += " required when normalization is on (-n)."
-	assert 3 <= len(args.bedfile), assert_msg
+	assrtmsg = "at least two (3) GPSeq condition bedfiles,"
+	assrtmsg += " in increasing order of restriction intensity are"
+	assrtmsg += " required when normalization is on (-n)."
+	assert 3 <= len(args.bedfile), assrtmsg
 
 # Bedtools must be installed
 assert pbt.check_for_bedtools(), "bedtools required."
@@ -275,24 +289,24 @@ for bp in args.bedfile:
 	assert os.path.isfile(bp), "file not found: '%s'" % bp
 
 # -l option is mandatory with -gc1
-assert_msg = "missing -l option with -gc1."
+assrtmsg = "missing -l option with -gc1."
 assertc = 1 == args.cutsite_mode and 0 == args.group_size
-assert not(assertc and type(None) == type(args.cutsite_bed)), assert_msg
+assert not(assertc and type(None) == type(args.cutsite_bed)), assrtmsg
 
 if type(None) != type(args.mask_bed):
-	assert_msg = "file not found: '%s'" % args.mask_bed
-	assert os.path.isfile(args.mask_bed), assert_msg
+	assrtmsg = "file not found: '%s'" % args.mask_bed
+	assert os.path.isfile(args.mask_bed), assrtmsg
 if type(None) != type(args.mask_out):
-	assert_msg = "file not found: '%s'" % args.mask_out
-	assert os.path.isfile(args.mask_out), assert_msg
+	assrtmsg = "file not found: '%s'" % args.mask_out
+	assert os.path.isfile(args.mask_out), assrtmsg
 
 if type(None) != type(args.cutsite_bed):
-	assert_msg = "file not found: '%s'" % args.cutsite_bed
-	assert os.path.isfile(args.cutsite_bed), assert_msg
+	assrtmsg = "file not found: '%s'" % args.cutsite_bed
+	assert os.path.isfile(args.cutsite_bed), assrtmsg
 
 if type(None) != type(args.genome_size):
-	assert_msg = "file not found: '%s'" % args.genome_size
-	assert os.path.isfile(args.genome_size), assert_msg
+	assrtmsg = "file not found: '%s'" % args.genome_size
+	assert os.path.isfile(args.genome_size), assrtmsg
 
 # Bin size, bin step and group size must be positive
 assert 0 <= args.bin_size, "bin size must be a positive integer."
@@ -300,19 +314,19 @@ assert 0 <= args.bin_step, "bin step must be a positive integer."
 assert 0 <= args.group_size, "group size must be a positive integer."
 
 # Bin size >= bin step
-assert_msg = "bin size must be greater then or equal to bin step."
-assert args.bin_size >= args.bin_step, assert_msg
+assrtmsg = "bin size must be greater then or equal to bin step."
+assert args.bin_size >= args.bin_step, assrtmsg
 
 if args.bin_size != 0 and args.bin_step == 0:
 	args.bin_step = args.bin_size
 
 if 0 != args.bin_size and 0 != args.group_size:
-	assert_msg = "bin size must be divisible by group size."
-	assert 0 == args.bin_size % args.group_size, assert_msg
+	assrtmsg = "bin size must be divisible by group size."
+	assert 0 == args.bin_size % args.group_size, assrtmsg
 
 if 0 != args.bin_step and 0 != args.group_size:
-	assert_msg = "bin step must be greater than group size."
-	assert args.bin_step > args.group_size, assert_msg
+	assrtmsg = "bin step must be greater than group size."
+	assert args.bin_step > args.group_size, assrtmsg
 
 if 0 != args.bin_step and 0 == args.bin_size:
 	print("wARNING: missing bin size, ignoring -p option.")
@@ -364,16 +378,24 @@ def print_settings(args, clear = True):
 		else:
 			flag = " (remove all)"
 
-		s += "\n   Outliers : '%s'%s\n" % (args.outliers, flag)
-
-		if args.outliers == "IQR":
-			s += "      Limit : %.2f\n\n" % (args.outlier_limit)
+		s += "\n Bed outliers -------------------"
+		s += "\n     Method : '%s'%s\n" % (args.bed_outliers, flag)
+		if args.bed_outliers == "IQR":
+			s += "      Limit : %.2f\n" % (args.bed_outlier_limit)
 		else:
-			s += "      Alpha : %.2f\n\n" % (args.outlier_alpha)
+			s += "      Alpha : %.2f\n" % (args.bed_outlier_alpha)
+
+		s += "\n Score outliers -----------------"
+		s += "\n     Method : '%s'%s\n" % (args.score_outliers, flag)
+		if args.score_outliers == "IQR":
+			s += "      Limit : %.2f\n" % (args.score_outlier_limit)
+		else:
+			s += "      Alpha : %.2f\n" % (args.score_outlier_alpha)
+
+		s += "\n"
 
 	if type(None) != type(args.genome_size):
 		s += "Genome size : %s\n" % args.genome_size
-
 
 	if 0 != len(args.prefix): s += "     Prefix : '%s'\n" % args.prefix
 	if 0 != len(args.suffix): s += "     Suffix : '%s'\n" % args.suffix
@@ -471,11 +493,13 @@ if not args.keep_outliers:
 		outlier_beds = []
 		for b in tqdm(bedfiles):
 			outlier_beds.append(bed.identify_outliers(b, args.outliers,
-				prob = 1 - args.outlier_alpha, lim = args.outlier_limit))
+				prob = 1 - args.bed_outlier_alpha,
+				lim = args.bed_outlier_limit))
 	else:
 		outlier_beds =  Parallel(n_jobs = args.threads, verbose = 11)(
 			delayed(bed.identify_outliers)(b, args.outliers,
-				prob = 1 - args.outlier_alpha, lim = args.outlier_limit)
+				prob = 1 - args.bed_outlier_alpha,
+				lim = args.bed_outlier_limit)
 			for b in bedfiles)
 		
 	for bi in range(len(outlier_beds)):
@@ -666,9 +690,14 @@ df_saveas(est, "estimated.%s.tsv" % descr, args)
 # (10) Rank bins ---------------------------------------------------------------
 print("Ranking bins...")
 
-# Rank bins
 rank = centrality.rank(est, toCalc, chrWide = args.bin_size == 0)
 df_saveas(rank, "ranked.%s.tsv" % descr, args)
+
+# (11) Rescale scores ----------------------------------------------------------
+
+rescaled = centrality.rescale(est, method = args.score_outliers,
+	alpha = args.score_outlier_alpha, lim = args.score_outlier_limit)
+df_saveas(rescaled, "rescaled.%s.tsv" % descr, args)
 
 # End --------------------------------------------------------------------------
 

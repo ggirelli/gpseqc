@@ -13,14 +13,18 @@ import pandas as pd
 from scipy.stats import chi2, iqr, norm, t
 from scipy.stats.mstats import mquantiles
 
+# CONSTANTS ====================================================================
+
+OUTLIER_METHODS = ["Z", "t", "chi2", "IQR", "MAD"]
+
 # FUNCTIONS ====================================================================
 
-def score_outliers(data, stype, prob = None, lim = None):
+def score_outliers(data, method, prob = None, lim = None):
     '''Identify outliers in a 1-dimensional data array.
 
     Args:
         data (np.ndarray).
-        stype (str): outlier score type. "Z" calculates normal scores, "t"
+        method (str): outlier score type. "Z" calculates normal scores, "t"
             calculates t-Student scores, "chi2" gives chi-squared scores. "IQR"
             considers only values lower than or equal to the first quartile or
             greater than or equal to the third quartile, and sets the  score to
@@ -41,7 +45,7 @@ def score_outliers(data, stype, prob = None, lim = None):
     '''
 
     assert_msg = "unrecognized score type, available: %s" % str(OUTLIER_METHODS)
-    assert stype in OUTLIER_METHODS, assert_msg
+    assert method in OUTLIER_METHODS, assert_msg
 
     if type(None) != type(prob):
         assert prob >= 0, "expected probability greater than or equal to 0."
@@ -55,21 +59,21 @@ def score_outliers(data, stype, prob = None, lim = None):
     std = data.std()
     Z = (data - mean) / std
     
-    if stype == "Z":
+    if method == "Z":
         if type(None) == type(prob): return Z
         pvalues =  norm.cdf(Z)
 
-    if stype == "t":
+    if method == "t":
         t_values = Z * np.sqrt(n - 2) / np.sqrt(n - 1 - np.power(Z, 2))
         if type(None) == type(prob): return t_values
         pvalues =  t.cdf(t_values, n - 2)
 
-    if stype == "chi2":
+    if method == "chi2":
         chisquare = np.power(Z, 2)
         if type(None) == type(prob): return chisquare
         pvalues = chi2.cdf(chisquare, 1)
 
-    if stype == "IQR":
+    if method == "IQR":
         q1, q3 = mquantiles(data, [.25, .75])
         IQR = iqr(data)
 
@@ -82,7 +86,7 @@ def score_outliers(data, stype, prob = None, lim = None):
         else:
             return np.absolute(IQR_values) >= lim
 
-    if stype == "MAD":
+    if method == "MAD":
         median = mquantiles(data, [.5])
         MAD = 1.4826 * np.median(np.absolute(data - median))
 
@@ -94,10 +98,6 @@ def score_outliers(data, stype, prob = None, lim = None):
         return pvalues
     else:
         return pvalues >= prob
-
-# CONSTANTS ====================================================================
-
-OUTLIER_METHODS = ["Z", "t", "chi2", "IQR", "MAD"]
 
 # END ==========================================================================
 
