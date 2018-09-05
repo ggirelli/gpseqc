@@ -79,16 +79,17 @@ def score_outliers(data, method, prob = None, lim = None):
         IQR = q3 - q1
 
         IQR_values = np.zeros(n, dtype = np.float64)
-        q1_cond = np.logical_and(data <= q1, np.logical_not(np.isnan(data)))
+        nan_cond = np.isnan(data)
+        IQR_values[nan_cond] = lim
+        q1_cond = np.logical_and(data <= q1, np.logical_not(nan_cond))
         IQR_values[q1_cond] = (data[q1_cond] - q1) / IQR
-        q3_cond = np.logical_and(data >= q3, np.logical_not(np.isnan(data)))
+        q3_cond = np.logical_and(data >= q3, np.logical_not(nan_cond))
         IQR_values[q3_cond] = (data[q3_cond] - q3) / IQR
         
         if type(None) == type(lim):
             return IQR_values
         else:
-            return np.array([x >= lim if not np.isnan(x) else False
-                for x in np.absolute(IQR_values)])
+            return np.absolute(IQR_values) >= lim
 
     if method == "MAD":
         median = mquantiles(data, [.5])
