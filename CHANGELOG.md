@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `gpseqc_estimate`
     + Settings confirmation page.
     + Removed NaN when calculating IQR and quartiles. Discarding NaN when asking for outliers with IQR method and `lim` specified.
+    + Colliding temporary files issue using `tempfile.TemporaryDirectory()`.
 
 
 

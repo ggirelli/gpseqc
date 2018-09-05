@@ -334,7 +334,8 @@ if 0 != args.bin_step and 0 == args.bin_size:
 
 # Temporary folder must exist
 assert os.path.isdir(args.T), "temporary folder not found: %s" % args.T
-pbt.set_tempdir(args.T)
+temp_dir = tempfile.TemporaryDirectory(suffix = "gpseqc_estimate", dir = args.T)
+pbt.set_tempdir(temp_dir.name)
 
 # Adjust prefix/suffix if needed
 if 0 != len(args.prefix):
