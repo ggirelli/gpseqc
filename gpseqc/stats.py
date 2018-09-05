@@ -74,17 +74,21 @@ def score_outliers(data, method, prob = None, lim = None):
         pvalues = chi2.cdf(chisquare, 1)
 
     if method == "IQR":
-        q1, q3 = mquantiles(data, [.25, .75])
-        IQR = iqr(data)
+        data_notNan = data[np.logical_not(np.isnan(data))]
+        q1, q3 = mquantiles(data_notNan, [.25, .75])
+        IQR = q3 - q1
 
         IQR_values = np.zeros(n, dtype = np.float64)
-        IQR_values[data <= q1] = (data[data <= q1] - q1) / IQR
-        IQR_values[data >= q3] = (data[data >= q3] - q3) / IQR
+        q1_cond = np.logical_and(data <= q1, np.logical_not(np.isnan(data)))
+        IQR_values[q1_cond] = (data[q1_cond] - q1) / IQR
+        q3_cond = np.logical_and(data >= q3, np.logical_not(np.isnan(data)))
+        IQR_values[q3_cond] = (data[q3_cond] - q3) / IQR
         
         if type(None) == type(lim):
             return IQR_values
         else:
-            return np.absolute(IQR_values) >= lim
+            return np.array([x >= lim if not np.isnan(x) else False
+                for x in np.absolute(IQR_values)])
 
     if method == "MAD":
         median = mquantiles(data, [.5])
