@@ -54,6 +54,8 @@ def score_outliers(data, method, prob = None, lim = None):
     if type(None) != type(lim):
         assert lim >= 0, "expected limit greater than or equal to 0."
 
+    data = data.astype('f') # Force data to float
+
     n = len(data)
     mean = data.mean()
     std = data.std()
