@@ -353,9 +353,9 @@ def rescale(data, method = "IQR", prob = None, lim = 1.5):
         outliers = score_outliers(data.loc[:, estimateName], method, prob, lim)
         non_outliers = np.logical_not(outliers)
         points = data.loc[non_outliers, estimateName]
-        data.loc[:, estimateName] = data.loc[:, estimateName]-np.nanmin(points)
+        data.loc[:, estimateName] = data.loc[:, estimateName] - np.min(points)
         points = data.loc[non_outliers, estimateName]
-        data.loc[:, estimateName] = data.loc[:, estimateName]/np.nanmax(points)
+        data.loc[:, estimateName] = data.loc[:, estimateName] / np.max(points)
         data.loc[:, estimateName] = 2**data.loc[:, estimateName]
 
     return(data)
