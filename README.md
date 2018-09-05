@@ -1,4 +1,4 @@
-gpseqc v2.3.3
+gpseqc v2.3.4
 ===
 
 A Python3 package that provides tools to estimate the 3D spatial nuclear centrality of genomic regions and compare different centrality rankings.
