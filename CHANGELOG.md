@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 
+## [2.3.5] - 2019-03-25
+### Fixed
+- `gpseqc_estimate`
+    + Fixed `-l` option.
+
+
+
 ## [2.3.4] - 2018-09-05
 ### Fixed
 - `gpseqc_estimate`

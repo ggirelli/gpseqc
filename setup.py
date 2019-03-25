@@ -20,7 +20,7 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
 	long_description = f.read()
 
 setup(name='gpseqc',
-	version='2.3.4',
+	version='2.3.5',
 	description='GPSeq-based centrality estimation.',
 	long_description=long_description,
 	long_description_content_type='text/markdown',

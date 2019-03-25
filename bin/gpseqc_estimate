@@ -167,7 +167,7 @@ parser.add_argument('-C', '--rm-common-outliers', action = 'store_const',
 	const = True, default = False)
 
 # Version flag
-version = "3.5.1"
+version = "3.5.2"
 parser.add_argument('--version', action = 'version',
 	version = '%s v%s' % (sys.argv[0], version,))
 
@@ -609,7 +609,7 @@ if args.normalize:
 print("Preparing cutsites...")
 
 csbed = cutsite_domain.build(bedfiles, args.cutsite_mode,
-	csbed = args.cutsite_bed, groups = groups)
+	csbed = pbt.BedTool(args.cutsite_bed).sort(), groups = groups)
 
 # Save if debugging
 if not type(None) == type(csbed) and args.debug_mode:
