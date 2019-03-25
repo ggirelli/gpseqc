@@ -608,8 +608,9 @@ if args.normalize:
 # (5) Prepare domain -----------------------------------------------------------
 print("Preparing cutsites...")
 
-if os.path.isfile(args.cutsite_bed):
-	args.cutsite_bed = pbt.BedTool(args.cutsite_bed).sort()
+if type(None) != type(args.cutsite_bed):
+	if os.path.isfile(args.cutsite_bed):
+		args.cutsite_bed = pbt.BedTool(args.cutsite_bed).sort()
 
 csbed = cutsite_domain.build(bedfiles, args.cutsite_mode,
 	csbed = args.cutsite_bed, groups = groups)
