@@ -69,8 +69,8 @@ restriction conditions intensity.""")
 
 # Optional parameters
 parser.add_argument('-H', '--help2', action = 'store_const',
-    help = """Shows additional information in a readable format and quit.""",
-    const = True, default = False)
+	help = """Shows additional information in a readable format and quit.""",
+	const = True, default = False)
 parser.add_argument('-o', '--output', type = str,
 	help = """Path to output folder.""", metavar = "outDir", required = True)
 parser.add_argument('-c', '--cutsite-mode', type = int,
@@ -107,10 +107,10 @@ parser.add_argument('-g', '--group-size', type = int,
 	binSize must be divisible by groupSize. Not used by default.""",
 	metavar = "groupSize", default = 0)
 parser.add_argument('--bed-outliers', type = str, metavar = 'method',
-    default = "chi2", choices = stats.OUTLIER_METHODS,
-    help = """Outlier detection method. One of: 'Z' (Z-score), 't' 
-    (t-student, as Z*sqrt(n-2)/sqrt(n-1-Z^2)), 'chi2' (chi-square, as Z^2), 
-    'IQR' or 'MAD'. Default: 'chi2'.""")
+	default = "chi2", choices = stats.OUTLIER_METHODS,
+	help = """Outlier detection method. One of: 'Z' (Z-score), 't' 
+	(t-student, as Z*sqrt(n-2)/sqrt(n-1-Z^2)), 'chi2' (chi-square, as Z^2), 
+	'IQR' or 'MAD'. Default: 'chi2'.""")
 parser.add_argument('--bed-outlier-alpha', type = float, metavar = "alpha",
 	help = """Significance level for the detection of outliers.
 	Default: 0.01""", default = 0.01)
@@ -118,10 +118,10 @@ parser.add_argument('--bed-outlier-limit', type = float, metavar = "lim",
 	help = """Threshold (limit) for the detection of outliers with the IQR
 	method. Default: 1.5""", default = 1.5)
 parser.add_argument('--score-outliers', type = str, metavar = 'method',
-    default = "IQR", choices = stats.OUTLIER_METHODS,
-    help = """Outlier detection method. One of: 'Z' (Z-score), 't' 
-    (t-student, as Z*sqrt(n-2)/sqrt(n-1-Z^2)), 'chi2' (chi-square, as Z^2), 
-    'IQR' or 'MAD'. Default: 'IQR'.""")
+	default = "IQR", choices = stats.OUTLIER_METHODS,
+	help = """Outlier detection method. One of: 'Z' (Z-score), 't' 
+	(t-student, as Z*sqrt(n-2)/sqrt(n-1-Z^2)), 'chi2' (chi-square, as Z^2), 
+	'IQR' or 'MAD'. Default: 'IQR'.""")
 parser.add_argument('--score-outlier-alpha', type = float, metavar = "alpha",
 	help = """Significance level for the detection of outliers.
 	Default: 0.05""", default = 0.05)
@@ -500,7 +500,8 @@ if not args.keep_outliers:
 		outlier_beds =  Parallel(n_jobs = args.threads, verbose = 11)(
 			delayed(bed.identify_outliers)(b, args.bed_outliers,
 				prob = 1 - args.bed_outlier_alpha,
-				lim = args.bed_outlier_limit)
+				lim = args.bed_outlier_limit,
+				tmpDir = temp_dir.name)
 			for b in bedfiles)
 		
 	for bi in range(len(outlier_beds)):
@@ -560,14 +561,17 @@ if args.debug_mode: bed_saveas(bins, "bins.%s.bed" % descr, args)
 
 groups = None
 if 0 != args.group_size:
-	print("Grouping reads...")
+	print("Grouping reads...")#
 
 	# Generate groups bed
 	groups = bed.mk_windows(chr_sizes, args.group_size, args.group_size)
 	if args.debug_mode: bed_saveas(groups, "groups.%s.bed" % descr, args)
 
 	# Intersect
-	def do_intersect(i, bedfiles, groups, descr, args):
+	def do_intersect(i, bedfiles, groups, descr, args, tmpDir = None):
+		if isinstance(tmpDir, str):
+			if os.path.isdir(tmpDir):
+				pbt.set_tempdir(tmpDir)
 		bedfiles[i] = bed.to_combined_bins(groups, bedfiles[i])
 		if args.debug_mode: bed_saveas(bedfiles[i], "grouped.%s.%s.tsv" % (
 			descr, os.path.basename(args.bedfile[i])), args)
@@ -578,8 +582,8 @@ if 0 != args.group_size:
 			do_intersect(i, bedfiles, groups, descr, args)
 	else:
 		bedfiles =  Parallel(n_jobs = args.threads, verbose = 11)(
-			delayed(do_intersect)(i, bedfiles, groups, descr, args)
-			for i in range(len(bedfiles)))
+			delayed(do_intersect)(i, bedfiles, groups, descr, args,
+				temp_dir.name) for i in range(len(bedfiles)))
 
 # (4) Normalize over last condition --------------------------------------------
 
@@ -591,7 +595,10 @@ if args.normalize:
 	bedfiles = bedfiles[:-1]
 
 	# Normalize
-	def do_normalize(i, bedfiles, normbed, descr, args):
+	def do_normalize(i, bedfiles, normbed, descr, args, tmpDir = None):
+		if isinstance(tmpDir, str):
+			if os.path.isdir(tmpDir):
+				pbt.set_tempdir(tmpDir)
 		bedfiles[i] = bed.normalize(normbed, bedfiles[i])
 		if args.debug_mode: bed_saveas(bedfiles[i], "normlast.%s.%s.tsv" % (
 			descr, os.path.basename(args.bedfile[i])), args)
@@ -602,8 +609,8 @@ if args.normalize:
 			do_normalize(i, bedfiles, normbed, descr, args)
 	else:
 		bedfiles =  Parallel(n_jobs = args.threads, verbose = 11)(
-			delayed(do_normalize)(i, bedfiles, normbed, descr, args)
-			for i in range(len(bedfiles)))
+			delayed(do_normalize)(i, bedfiles, normbed, descr, args,
+				temp_dir.name) for i in range(len(bedfiles)))
 
 # (5) Prepare domain -----------------------------------------------------------
 print("Preparing cutsites...")
@@ -623,14 +630,17 @@ bedfiles = cutsite_domain.apply(bedfiles, csbed)
 
 # Save if debugging
 if args.debug_mode:
-    for i in range(len(bedfiles)):
-    	bed_saveas(bedfiles[i], "csd.%s.%s.tsv" % (descr,
-            os.path.basename(args.bedfile[i])), args)
+	for i in range(len(bedfiles)):
+		bed_saveas(bedfiles[i], "csd.%s.%s.tsv" % (descr,
+			os.path.basename(args.bedfile[i])), args)
 
 # (6) Assign reads to bins (intersect) -----------------------------------------
 print("Assigning to bins...")
 
-def do_assign(i, bedfiles, bins, descr, args):
+def do_assign(i, bedfiles, bins, descr, args, tmpDir = None):
+	if isinstance(tmpDir, str):
+		if os.path.isdir(tmpDir):
+			pbt.set_tempdir(tmpDir)
 	bedfiles[i] = bed.to_bins(bins, bedfiles[i], skipEmpty = False)
 
 	# Save if debugging
@@ -643,7 +653,7 @@ if 1 == args.threads:
 		do_assign(i, bedfiles, bins, descr, args)
 else:
 	bedfiles = Parallel(n_jobs = args.threads, verbose = 11)(
-		delayed(do_assign)(i, bedfiles, bins, descr, args)
+		delayed(do_assign)(i, bedfiles, bins, descr, args, temp_dir.name)
 		for i in range(len(bedfiles)))
 
 # (7) Calculate bin statistics -------------------------------------------------
@@ -653,7 +663,7 @@ if 1 == args.threads:
 	bstats = [bed.calc_stats(b) for b in tqdm(bedfiles)]
 else:
 	bstats = Parallel(n_jobs = args.threads, verbose = 11)(
-		delayed(bed.calc_stats)(b) for b in bedfiles)
+		delayed(bed.calc_stats)(b, temp_dir.name) for b in bedfiles)
 
 # Add condition columns
 for i in range(len(bstats)):
@@ -683,7 +693,6 @@ else:
 # (9.5) Mask centrality track --------------------------------------------------
 if type(None) != type(args.mask_out):
 	print("Masking centrality track...")
-
 	mask = pbt.BedTool(args.mask_out).sort()
 	bedEst = pbt.BedTool(est.to_string(header = False, index = False),
 		from_string = True)

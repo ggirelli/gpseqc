@@ -17,7 +17,7 @@ from gpseqc import stats
 
 # FUNCTIONS ====================================================================
 
-def calc_stats(bed):
+def calc_stats(bed, tmpDir = None):
     '''Calculate bin-wise statistics.
 
     Args:
@@ -26,6 +26,9 @@ def calc_stats(bed):
     Returns:
         pd.DataFrame: data frame with bin statistics.
     '''
+    if isinstance(tmpDir, str):
+        if os.path.isdir(tmpDir):
+            pbt.set_tempdir(tmpDir)
     
     data = {}
     with open(bed.fn, "r+") as IH:
@@ -339,7 +342,7 @@ def to_combined_bins(bins, bed, fcomb = None):
     s = "\n".join(["%s\t%d\t%d\t%s\t%d" % tuple(v) for v in d2.values()])
     return(pbt.BedTool(s, from_string = True).sort())
 
-def identify_outliers(bed, stype, prob = .99, lim = 1.5):
+def identify_outliers(bed, stype, prob = .99, lim = 1.5, tmpDir = None):
     '''Select only the outliers from a bed file.
 
     Args:
@@ -362,6 +365,10 @@ def identify_outliers(bed, stype, prob = .99, lim = 1.5):
     Returns:
         pbt.BedTool: outliers bed.
     '''
+
+    if isinstance(tmpDir, str):
+        if os.path.isdir(tmpDir):
+            pbt.set_tempdir(tmpDir)
 
     scores = np.array([float(region.score) for region in bed])
 
