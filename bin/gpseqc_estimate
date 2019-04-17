@@ -638,10 +638,8 @@ if args.debug_mode:
 print("Assigning to bins...")
 
 def do_assign(i, bedfiles, bins, descr, args, tmpDir = None):
-	if isinstance(tmpDir, str):
-		if os.path.isdir(tmpDir):
-			pbt.set_tempdir(tmpDir)
-	bedfiles[i] = bed.to_bins(bins, bedfiles[i], skipEmpty = False)
+	bedfiles[i] = bed.to_bins(bins, bedfiles[i],
+		skipEmpty = False, tmpDir = tmpDir)
 
 	# Save if debugging
 	if args.debug_mode: bed_saveas(bedfiles[i], "intersected.%s.%s.tsv" % (

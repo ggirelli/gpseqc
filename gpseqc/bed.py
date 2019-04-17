@@ -173,7 +173,7 @@ def normalize(normbed, bed):
 
     return(pbt.BedTool(s, from_string = True).sort())
 
-def to_bins(bins, bed, noValues = False, skipEmpty = True):
+def to_bins(bins, bed, noValues = False, skipEmpty = True, tmpDir = None):
     '''Assign regions to bins. Each bin will appear once per each intersecting
     region, with the region value field appended. 
 
@@ -191,6 +191,9 @@ def to_bins(bins, bed, noValues = False, skipEmpty = True):
     Returns:
         pbt.BedTool: grouped bed.
     '''
+    if isinstance(tmpDir, str):
+        if os.path.isdir(tmpDir):
+            pbt.set_tempdir(tmpDir)
 
     if not noValues:
         assert_msg = "missing score column, run with 'noValues = True'."
@@ -388,7 +391,11 @@ def identify_outliers(bed, stype, prob = .99, lim = 1.5, tmpDir = None):
                     outliers_data.append(record)
                 record_id += 1
 
-    return pbt.BedTool("".join(outliers_data), from_string = True).sort()
+    out = pbt.BedTool("".join(outliers_data), from_string = True)
+    outSorted = out.sort()
+    os.remove(out.fn)
+
+    return outSorted
 
 # END ==========================================================================
 
