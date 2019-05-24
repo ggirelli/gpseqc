@@ -58,6 +58,73 @@ from gpseqc import bed, centrality, cutsite_domain, stats
 
 # PARAMETERS ===================================================================
 
+if any([x in sys.argv for x in ["--help2", "-H"]]):
+	print("""
+ Use 'gpseqc_estimate' to estimate global centrality.
+ The script performs the following steps:
+  (1) Identify & sort chromosomes
+  (2) Remove outliers & mask bed-files
+  (3) Generate bins
+  (4) Group cutsites (intersect)
+  (5) Normalize over last condition.
+  (6) Prepare domain
+  (7) Assign reads to bins (intersect)
+  (8) Calculate bin statistics
+  (9) Combine condition into a single table
+  (10) Estimate centrality
+  (11) Mask centrality track
+  (12) Rank bins
+  (13) Write output
+
+ # Cutsite domain --------------------------------------------------------------
+
+  The cutsite domain can be specified as follows:
+  1 - all genomic cutsites (universe)
+  2 - all cutsites restricted in the experiment (union)
+  3 - all cutsites restricted in a condition (separate)
+  4 - all cutsites restricted in all conditions (intersection)
+  Default is 3 (separate). Also, note that if option 1 is selected, an
+  additional argument -l is required.
+  
+  Statistics (mean, variance) scores take into account only the cutsites
+  included in the specified cutsite domain. The same cutsite domain is used for
+  all estimates.
+
+  Option 1 requires a list of known genomic cutsites. If grouping is active,
+  only groups with at least one cutsite are retained, and the list of remaining
+  groups is used as the cutsite domain. In this case, each group is considered
+  as a 'cutsite'.
+  
+  Options 3 and 4 include an empty-cutsites/groups removal step. In this case,
+  they are removed before bin assignment, while empty bins are kept. Also,
+  normalization is performed after empty cutsite/group removal but before bin
+  assignment, i.e., either on the grouped or single cutsites.
+ 
+ # Resolution ------------------------------------------------------------------
+
+  Depending on the sequencing resolution, it might not be feasible to go for
+  single-cutsite resolution. Thus, cutsite can be grouped for the statistics
+  calculation using the -g option.
+  
+  In case of sub-chromosome bins, the ranking is done in an ordered
+  chromosome-wise manner.
+ 
+ # Select specific scores -----------------------------------------------------
+
+  By default, all the available scores are calculated. Use -i to provide a list
+  of the comma-separated scores to calculate, while the rest would be excluded.
+  Use the -e option to provide a list of the comma-separated scores not to be
+  calculated, while the rest would be included. The available scores are:
+
+ # Scores ----------------------------------------------------------------------
+
+ - %s
+
+ # -----------------------------------------------------------------------------
+""" % ("\n - ".join([inspect.getsourcelines(f)[0][0].strip()
+	for (k, f) in centrality.CMETRICS.items()])))
+	sys.exit()
+
 # Add script description
 parser = argparse.ArgumentParser(
 	formatter_class = argparse.RawDescriptionHelpFormatter)
@@ -173,73 +240,6 @@ parser.add_argument('--version', action = 'version',
 
 # Parse arguments
 args = parser.parse_args()
-
-if args.help2:
-	print("""
- Use 'gpseqc_estimate' to estimate global centrality.
- The script performs the following steps:
-  (1) Identify & sort chromosomes
-  (2) Remove outliers & mask bed-files
-  (3) Generate bins
-  (4) Group cutsites (intersect)
-  (5) Normalize over last condition.
-  (6) Prepare domain
-  (7) Assign reads to bins (intersect)
-  (8) Calculate bin statistics
-  (9) Combine condition into a single table
-  (10) Estimate centrality
-  (11) Mask centrality track
-  (12) Rank bins
-  (13) Write output
-
- # Cutsite domain --------------------------------------------------------------
-
-  The cutsite domain can be specified as follows:
-  1 - all genomic cutsites (universe)
-  2 - all cutsites restricted in the experiment (union)
-  3 - all cutsites restricted in a condition (separate)
-  4 - all cutsites restricted in all conditions (intersection)
-  Default is 3 (separate). Also, note that if option 1 is selected, an
-  additional argument -l is required.
-  
-  Statistics (mean, variance) scores take into account only the cutsites
-  included in the specified cutsite domain. The same cutsite domain is used for
-  all estimates.
-
-  Option 1 requires a list of known genomic cutsites. If grouping is active,
-  only groups with at least one cutsite are retained, and the list of remaining
-  groups is used as the cutsite domain. In this case, each group is considered
-  as a 'cutsite'.
-  
-  Options 3 and 4 include an empty-cutsites/groups removal step. In this case,
-  they are removed before bin assignment, while empty bins are kept. Also,
-  normalization is performed after empty cutsite/group removal but before bin
-  assignment, i.e., either on the grouped or single cutsites.
- 
- # Resolution ------------------------------------------------------------------
-
-  Depending on the sequencing resolution, it might not be feasible to go for
-  single-cutsite resolution. Thus, cutsite can be grouped for the statistics
-  calculation using the -g option.
-  
-  In case of sub-chromosome bins, the ranking is done in an ordered
-  chromosome-wise manner.
- 
- # Select specific scores -----------------------------------------------------
-
-  By default, all the available scores are calculated. Use -i to provide a list
-  of the comma-separated scores to calculate, while the rest would be excluded.
-  Use the -e option to provide a list of the comma-separated scores not to be
-  calculated, while the rest would be included. The available scores are:
-
- # Scores ----------------------------------------------------------------------
-
- - %s
-
- # -----------------------------------------------------------------------------
-""" % ("\n - ".join([inspect.getsourcelines(f)[0][0].strip()
-	for (k, f) in centrality.CMETRICS.items()])))
-	sys.exit()
 
 # Check input ------------------------------------------------------------------
 
