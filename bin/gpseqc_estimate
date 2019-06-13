@@ -469,8 +469,11 @@ with open(os.path.join(args.output, "%ssettings.%s%s.txt" % (
 print("Parsing bedfiles and counting reads...")
 
 bedfiles = [pbt.BedTool(b).sort() for b in args.bedfile]
-conds_nreads = [len(b) for b in bedfiles]
+conds_nsites = [len(b) for b in bedfiles]
+conds_nreads = [sum([float(f.score) for f in b]) for b in bedfiles]
 
+for i in range(len(conds_nsites)):
+	assert 0 != conds_nsites[i], "empty bedfile found: %s" % args.bedfile[i]
 for i in range(len(conds_nreads)):
 	assert 0 != conds_nreads[i], "empty bedfile found: %s" % args.bedfile[i]
 

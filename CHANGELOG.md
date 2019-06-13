@@ -7,8 +7,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## Unreleased
+### ...
+- ...
+
+
+
+## [2.3.6] - 2019-06-13
 ### Added
 - Support for custom temporary directory when parallelizing.
+
+### Fixed
+- Bug affecting all probability-based metrics that calculated the number of recognition sites sensed in a library instead of the total number of reads in that library.
 
 
 
@@ -198,6 +207,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 [Unreleased] https://github.com/ggirelli/gpseq-centrality-estimate  
+[2.3.6] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.3.6  
+[2.3.5] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.3.5  
 [2.3.4] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.3.4  
 [2.3.3] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.3.3  
 [2.3.2] https://github.com/ggirelli/gpseq-centrality-estimate/releases/tag/v2.3.2  
