@@ -1,3 +1,5 @@
+**NOTE: we have discontinued `gpseqc` in favor of the faster R script [GPSeq-RadiCal](https://github.com/ggirelli/GPSeq-RadiCal).**
+
 gpseqc
 ===
 
